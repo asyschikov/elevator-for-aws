@@ -1,0 +1,10 @@
+[project]
+name = "elevator-pretoken"
+version = "1.0.0"
+description = "Elevator Pre-Token Generation Lambda function"
+requires-python = ">=3.14"
+dependencies = [
+    "boto3",
+    "types-boto3[sso-admin,identitystore,dynamodb]",
+    "aws-lambda-powertools",
+]

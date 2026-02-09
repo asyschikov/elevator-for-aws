@@ -1,0 +1,23 @@
+[project]
+name = "elevator-backend"
+version = "1.0.0"
+description = "Elevator Lambda backend function"
+requires-python = ">=3.14"
+dependencies = [
+    "boto3",
+    "types-boto3[full]",
+    "requests",
+    "slack-sdk",
+    "python-dateutil",
+    "aws-lambda-powertools[all]",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "moto[all]>=4.0.0",
+    "pytest-mock>=3.0.0",
+]
+

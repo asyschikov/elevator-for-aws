@@ -1,0 +1,3 @@
+boto3
+types-boto3[sso-admin,identitystore,dynamodb]
+aws-lambda-powertools
