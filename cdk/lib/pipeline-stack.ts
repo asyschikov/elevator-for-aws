@@ -145,7 +145,7 @@ export class PipelineStack extends cdk.Stack {
           branch: props.branch,
           connectionArn: connection.attrConnectionArn,
           output: sourceOutput,
-          triggerOnPush: true,
+          triggerOnPush: false,
         }),
       ],
     });

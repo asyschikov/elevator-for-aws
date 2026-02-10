@@ -124,9 +124,9 @@ If you already deployed without a custom domain and want to add one later:
    ```
    This updates the existing stack with the custom domain configuration.
 
-## Automated Deployments with CodePipeline (Optional)
+## Deployments with CodePipeline (Optional)
 
-Instead of running `./02-deploy.sh` manually, you can set up a CI/CD pipeline that automatically deploys when you push to your repository.
+Instead of running `./02-deploy.sh` locally, you can set up a CodePipeline to deploy from AWS.
 
 ### Create the Pipeline
 
@@ -137,7 +137,7 @@ After your initial deployment with `./02-deploy.sh`, run:
 ```
 
 This creates a CodePipeline that:
-- Triggers on pushes to your branch (auto-detected from git, or set `ELEVATOR_BRANCH`)
+- Pulls from your branch (auto-detected from git, or set `ELEVATOR_BRANCH`)
 - Deploys infrastructure changes via CDK
 - Builds and deploys the frontend
 
@@ -149,7 +149,11 @@ After creating the pipeline, you must approve the GitHub connection in the AWS C
 2. Find the `elevator-github-*` connection (status: Pending)
 3. Click **Update pending connection** and authorize GitHub access
 
-The pipeline will start automatically once the connection is approved.
+### Run the Pipeline
+
+The pipeline does not trigger automatically. To deploy, manually start the pipeline:
+- In AWS Console: **CodePipeline > elevator-{env} > Release change**
+- Or via CLI: `aws codepipeline start-pipeline-execution --name elevator-{env}`
 
 ### Pipeline Variables
 
@@ -177,7 +181,7 @@ You can optionally set these in `00-params.sh`:
 
 ## Updating
 
-### Manual deployment
+### Local deployment
 
 ```bash
 ./02-deploy.sh
@@ -185,9 +189,11 @@ You can optionally set these in `00-params.sh`:
 
 ### With pipeline
 
-Just push to your configured branch. The pipeline will deploy automatically.
+```bash
+aws codepipeline start-pipeline-execution --name elevator-$ELEVATOR_ENV
+```
 
-### Frontend only (manual)
+### Frontend only
 
 ```bash
 ./deploy-frontend.sh
