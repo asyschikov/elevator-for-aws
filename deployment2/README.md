@@ -124,6 +124,43 @@ If you already deployed without a custom domain and want to add one later:
    ```
    This updates the existing stack with the custom domain configuration.
 
+## Automated Deployments with CodePipeline (Optional)
+
+Instead of running `./02-deploy.sh` manually, you can set up a CI/CD pipeline that automatically deploys when you push to your repository.
+
+### Create the Pipeline
+
+After your initial deployment with `./02-deploy.sh`, run:
+
+```bash
+./create-pipeline.sh
+```
+
+This creates a CodePipeline that:
+- Triggers on pushes to your branch (auto-detected from git, or set `ELEVATOR_BRANCH`)
+- Deploys infrastructure changes via CDK
+- Builds and deploys the frontend
+
+### Approve GitHub Connection
+
+After creating the pipeline, you must approve the GitHub connection in the AWS Console:
+
+1. Go to **Developer Tools > Settings > Connections**
+2. Find the `elevator-github-*` connection (status: Pending)
+3. Click **Update pending connection** and authorize GitHub access
+
+The pipeline will start automatically once the connection is approved.
+
+### Pipeline Variables
+
+You can optionally set these in `00-params.sh`:
+
+| Variable | Description |
+|----------|-------------|
+| `ELEVATOR_REPO_OWNER` | GitHub owner/org (auto-detected from git remote) |
+| `ELEVATOR_REPO_NAME` | Repository name (auto-detected from git remote) |
+| `ELEVATOR_BRANCH` | Branch to deploy (defaults to current branch) |
+
 ## Scripts
 
 | Script | Description |
@@ -133,18 +170,25 @@ If you already deployed without a custom domain and want to add one later:
 | `01-delegate.sh` | Set up delegated admin (run from management account) |
 | `02-deploy.sh` | Deploy the Elevator stack |
 | `03-create-domain-and-cert.sh` | Set up custom domain and certificate |
+| `create-pipeline.sh` | Create CodePipeline for automated deployments |
 | `deploy-frontend.sh` | Redeploy frontend only |
 | `generate-config.py` | Generate frontend config from stack outputs |
 | `delete-idc-app.py` | Manually delete the IDC SAML application |
 
 ## Updating
 
-Redeploy everything:
+### Manual deployment
+
 ```bash
 ./02-deploy.sh
 ```
 
-Frontend only:
+### With pipeline
+
+Just push to your configured branch. The pipeline will deploy automatically.
+
+### Frontend only (manual)
+
 ```bash
 ./deploy-frontend.sh
 ```

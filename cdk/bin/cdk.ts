@@ -2,6 +2,7 @@
 import * as cdk from 'aws-cdk-lib';
 import { ElevatorStack } from '../lib/elevator-stack';
 import { DomainStack } from '../lib/domain-stack';
+import { PipelineStack } from '../lib/pipeline-stack';
 
 const app = new cdk.App();
 
@@ -13,6 +14,11 @@ const idcRegion = process.env.IDC_REGION;
 const customDomain = process.env.ELEVATOR_CUSTOM_DOMAIN;
 const idcAccessGroup = process.env.ELEVATOR_IDC_ACCESS_GROUP;
 const allowLocalhost = process.env.ELEVATOR_ALLOW_LOCALHOST === 'true';
+
+// Pipeline settings
+const repoOwner = process.env.ELEVATOR_REPO_OWNER;
+const repoName = process.env.ELEVATOR_REPO_NAME;
+const branch = process.env.ELEVATOR_BRANCH || 'main';
 
 if (!envName) {
   throw new Error('Missing required env var: ELEVATOR_ENV');
@@ -62,6 +68,28 @@ if (elevatorMissing.length === 0) {
     idcRegion,
     customDomain,
     idcAccessGroup: idcAccessGroup!,
+    allowLocalhost,
+    tags: commonTags,
+  });
+}
+
+// Pipeline Stack - created when repo settings are provided
+if (repoOwner && repoName && elevatorMissing.length === 0) {
+  new PipelineStack(app, `ElevatorPipeline-${envName}`, {
+    stackName: `ElevatorPipeline-${envName}`,
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+      region: process.env.CDK_DEFAULT_REGION!,
+    },
+    envName,
+    repoOwner,
+    repoName,
+    branch,
+    elevatorAdminGroup: elevatorAdminGroup!,
+    elevatorAuditorGroup: elevatorAuditorGroup!,
+    idcAccessGroup: idcAccessGroup!,
+    idcRegion,
+    customDomain,
     allowLocalhost,
     tags: commonTags,
   });
