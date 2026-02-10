@@ -22,15 +22,13 @@ SCRIPT_DIR="$(realpath "$(dirname "$0")")"
 CDK_DIR="$(realpath "$SCRIPT_DIR/../cdk")"
 STACK_NAME="DomainStack-$ELEVATOR_ENV"
 
-CDK_CONTEXT="-c envName=$ELEVATOR_ENV -c customDomain=$ELEVATOR_CUSTOM_DOMAIN"
-
 echo "=== Setting up Custom Domain: $ELEVATOR_CUSTOM_DOMAIN ==="
 echo ""
 
 # Start CDK deployment in background
 echo "Starting deployment (this will pause waiting for DNS validation)..."
 cd "$CDK_DIR"
-npx cdk deploy "$STACK_NAME" $CDK_CONTEXT --require-approval never &
+npx cdk deploy "$STACK_NAME" --require-approval never &
 CDK_PID=$!
 
 # Function to cleanup on exit
@@ -138,7 +136,7 @@ echo ""
 echo "Domain: $ELEVATOR_CUSTOM_DOMAIN"
 echo ""
 echo "You can now deploy the main Elevator stack:"
-echo "  source 00-params.sh && ./02-deploy.sh"
+echo "  ./02-deploy.sh"
 echo ""
 echo "After deployment, create a CNAME or ALIAS record pointing"
 echo "'$ELEVATOR_CUSTOM_DOMAIN' to the CloudFront distribution domain."

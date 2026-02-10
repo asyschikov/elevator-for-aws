@@ -5,15 +5,17 @@ import { DomainStack } from '../lib/domain-stack';
 
 const app = new cdk.App();
 
-const envName = app.node.tryGetContext('envName');
-const elevatorAdminGroup = app.node.tryGetContext('elevatorAdminGroup');
-const elevatorAuditorGroup = app.node.tryGetContext('elevatorAuditorGroup');
-const idcRegion = app.node.tryGetContext('idcRegion');
-const customDomain = app.node.tryGetContext('customDomain');
-const idcAccessGroup = app.node.tryGetContext('idcAccessGroup');
+// Read configuration from environment variables
+const envName = process.env.ELEVATOR_ENV;
+const elevatorAdminGroup = process.env.ELEVATOR_ADMIN_GROUP;
+const elevatorAuditorGroup = process.env.ELEVATOR_AUDITOR_GROUP;
+const idcRegion = process.env.IDC_REGION;
+const customDomain = process.env.ELEVATOR_CUSTOM_DOMAIN;
+const idcAccessGroup = process.env.ELEVATOR_IDC_ACCESS_GROUP;
+const allowLocalhost = process.env.ELEVATOR_ALLOW_LOCALHOST === 'true';
 
 if (!envName) {
-  throw new Error('Missing required context: envName');
+  throw new Error('Missing required env var: ELEVATOR_ENV');
 }
 
 if (!process.env.CDK_DEFAULT_ACCOUNT) {
@@ -41,9 +43,9 @@ if (customDomain) {
 
 // Main Elevator Stack - only create if all required params are present
 const elevatorMissing = [
-  !elevatorAdminGroup && 'elevatorAdminGroup',
-  !elevatorAuditorGroup && 'elevatorAuditorGroup',
-  !idcAccessGroup && 'idcAccessGroup',
+  !elevatorAdminGroup && 'ELEVATOR_ADMIN_GROUP',
+  !elevatorAuditorGroup && 'ELEVATOR_AUDITOR_GROUP',
+  !idcAccessGroup && 'ELEVATOR_IDC_ACCESS_GROUP',
   !process.env.CDK_DEFAULT_REGION && 'CDK_DEFAULT_REGION',
 ].filter(Boolean);
 
@@ -55,11 +57,12 @@ if (elevatorMissing.length === 0) {
       region: process.env.CDK_DEFAULT_REGION!,
     },
     envName,
-    elevatorAdminGroup,
-    elevatorAuditorGroup,
+    elevatorAdminGroup: elevatorAdminGroup!,
+    elevatorAuditorGroup: elevatorAuditorGroup!,
     idcRegion,
     customDomain,
-    idcAccessGroup,
+    idcAccessGroup: idcAccessGroup!,
+    allowLocalhost,
     tags: commonTags,
   });
 }

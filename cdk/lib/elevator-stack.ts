@@ -26,6 +26,7 @@ export interface ElevatorStackProps extends cdk.StackProps {
   idcRegion?: string;
   customDomain?: string;
   idcAccessGroup: string;
+  allowLocalhost?: boolean;
 }
 
 export class ElevatorStack extends cdk.Stack {
@@ -392,9 +393,8 @@ def handler(event, context):
     });
 
     // Build callback URLs list
-    const allowLocalhost = this.node.tryGetContext('allowLocalhost') === true;
     const callbackUrls = [siteUrl];
-    if (allowLocalhost) {
+    if (props.allowLocalhost) {
       callbackUrls.push('http://localhost:5173/');
     }
     if (externalUrl) {
