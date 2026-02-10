@@ -12,7 +12,7 @@ import boto3
 
 ELEVATOR_STACK = os.environ['ELEVATOR_STACK']
 REGION = os.environ.get('AWS_REGION', 'us-east-1')
-EXTERNAL_DOMAIN = os.environ.get('ELEVATOR_EXTERNAL_DOMAIN', '')
+CUSTOM_DOMAIN = os.environ.get('ELEVATOR_CUSTOM_DOMAIN', '')
 
 session = boto3.Session(region_name=REGION)
 cf = session.client('cloudformation')
@@ -21,11 +21,11 @@ cf = session.client('cloudformation')
 stack = cf.describe_stacks(StackName=ELEVATOR_STACK)
 outputs = {o['OutputKey']: o['OutputValue'] for o in stack['Stacks'][0]['Outputs']}
 
-app_domain = outputs.get('DistributionDomainName', 'localhost:5173')
+cloudfront_domain = outputs.get('DistributionDomainName', 'localhost:5173')
 oauth_domain = f"{outputs['OAuthDomain']}.auth.{REGION}.amazoncognito.com"
 
-# Use external domain for login URL if configured, otherwise use CloudFront domain
-login_domain = EXTERNAL_DOMAIN if EXTERNAL_DOMAIN else app_domain
+# Use custom domain if configured, otherwise use CloudFront domain
+app_domain = CUSTOM_DOMAIN if CUSTOM_DOMAIN else cloudfront_domain
 
 # Build config
 config = {
@@ -35,7 +35,7 @@ config = {
     "oauthDomain": oauth_domain,
     "appDomain": app_domain,
     "apiEndpoint": outputs['ApiUrl'],
-    "elevatorLoginUrl": f"https://{login_domain}/",
+    "elevatorLoginUrl": f"https://{app_domain}/",
 }
 
 # Write to src/config.json

@@ -10,6 +10,11 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as route53Targets from 'aws-cdk-lib/aws-route53-targets';
+import * as cr from 'aws-cdk-lib/custom-resources';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 import * as path from 'path';
 import * as lambdaPython from '@aws-cdk/aws-lambda-python-alpha';
@@ -19,8 +24,8 @@ export interface ElevatorStackProps extends cdk.StackProps {
   elevatorAdminGroup: string;
   elevatorAuditorGroup: string;
   idcRegion?: string;
-  externalDomain?: string;
-  samlMetadataUrl?: string;
+  customDomain?: string;
+  idcAccessGroup: string;
 }
 
 export class ElevatorStack extends cdk.Stack {
@@ -182,6 +187,115 @@ export class ElevatorStack extends cdk.Stack {
 
     websiteBucket.grantRead(originAccessIdentity);
 
+    // Look up ACM certificate and Route53 hosted zone dynamically via custom resources
+    let certificate: acm.ICertificate | undefined;
+    let hostedZone: route53.IHostedZone | undefined;
+
+    if (props.customDomain) {
+      // Look up certificate ARN dynamically (must be in us-east-1 for CloudFront)
+      const findCertFunction = new lambda.Function(this, 'FindCertFunction', {
+        code: lambda.Code.fromInline(`
+import boto3
+import cfnresponse
+
+def handler(event, context):
+    try:
+        if event['RequestType'] == 'Delete':
+            cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+            return
+
+        domain = event['ResourceProperties']['DomainName']
+        acm = boto3.client('acm', region_name='us-east-1')
+
+        paginator = acm.get_paginator('list_certificates')
+        for page in paginator.paginate(CertificateStatuses=['ISSUED']):
+            for cert in page['CertificateSummaryList']:
+                if cert['DomainName'] == domain:
+                    cfnresponse.send(event, context, cfnresponse.SUCCESS, {
+                        'CertificateArn': cert['CertificateArn']
+                    })
+                    return
+
+        cfnresponse.send(event, context, cfnresponse.FAILED, {}, reason=f'No issued certificate found for {domain}')
+    except Exception as e:
+        cfnresponse.send(event, context, cfnresponse.FAILED, {}, reason=str(e))
+`),
+        runtime: lambda.Runtime.PYTHON_3_12,
+        handler: 'index.handler',
+        timeout: cdk.Duration.seconds(30),
+        logRetention: logs.RetentionDays.ONE_WEEK,
+      });
+
+      findCertFunction.addToRolePolicy(new iam.PolicyStatement({
+        actions: ['acm:ListCertificates'],
+        resources: ['*'],
+      }));
+
+      const certResource = new cdk.CustomResource(this, 'CertificateResource', {
+        serviceToken: findCertFunction.functionArn,
+        properties: {
+          DomainName: props.customDomain,
+        },
+      });
+
+      const certificateArn = certResource.getAttString('CertificateArn');
+      certificate = acm.Certificate.fromCertificateArn(this, 'ImportedCertificate', certificateArn);
+
+      // Look up Route53 hosted zone dynamically
+      const findZoneFunction = new lambda.Function(this, 'FindZoneFunction', {
+        code: lambda.Code.fromInline(`
+import boto3
+import cfnresponse
+
+def handler(event, context):
+    try:
+        if event['RequestType'] == 'Delete':
+            cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+            return
+
+        domain = event['ResourceProperties']['DomainName']
+        route53 = boto3.client('route53')
+
+        paginator = route53.get_paginator('list_hosted_zones')
+        for page in paginator.paginate():
+            for zone in page['HostedZones']:
+                # Zone name has trailing dot
+                if zone['Name'] == domain + '.':
+                    zone_id = zone['Id'].replace('/hostedzone/', '')
+                    cfnresponse.send(event, context, cfnresponse.SUCCESS, {
+                        'HostedZoneId': zone_id
+                    })
+                    return
+
+        cfnresponse.send(event, context, cfnresponse.FAILED, {}, reason=f'No hosted zone found for {domain}')
+    except Exception as e:
+        cfnresponse.send(event, context, cfnresponse.FAILED, {}, reason=str(e))
+`),
+        runtime: lambda.Runtime.PYTHON_3_12,
+        handler: 'index.handler',
+        timeout: cdk.Duration.seconds(30),
+        logRetention: logs.RetentionDays.ONE_WEEK,
+      });
+
+      findZoneFunction.addToRolePolicy(new iam.PolicyStatement({
+        actions: ['route53:ListHostedZones'],
+        resources: ['*'],
+      }));
+
+      const zoneResource = new cdk.CustomResource(this, 'HostedZoneResource', {
+        serviceToken: findZoneFunction.functionArn,
+        properties: {
+          DomainName: props.customDomain,
+        },
+      });
+
+      const hostedZoneId = zoneResource.getAttString('HostedZoneId');
+      hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, 'ImportedHostedZone', {
+        hostedZoneId,
+        zoneName: props.customDomain,
+      });
+    }
+
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
       comment: `Elevator Distribution - ${envName}`,
       defaultBehavior: {
@@ -203,10 +317,26 @@ export class ElevatorStack extends cdk.Stack {
           responsePagePath: '/index.html',
         },
       ],
+      // Custom domain configuration
+      ...(props.customDomain && certificate
+        ? {
+            domainNames: [props.customDomain],
+            certificate,
+          }
+        : {}),
     });
 
+    // Create A record for custom domain pointing to CloudFront
+    if (props.customDomain && hostedZone) {
+      new route53.ARecord(this, 'CustomDomainARecord', {
+        zone: hostedZone,
+        recordName: props.customDomain,
+        target: route53.RecordTarget.fromAlias(new route53Targets.CloudFrontTarget(distribution)),
+      });
+    }
+
     const siteUrl = `https://${distribution.distributionDomainName}/`;
-    const externalUrl = props.externalDomain ? `https://${props.externalDomain}/` : undefined;
+    const externalUrl = props.customDomain ? `https://${props.customDomain}/` : undefined;
     // Primary login URL: external domain if set, otherwise CloudFront
     const primaryLoginUrl = externalUrl || siteUrl;
 
@@ -262,27 +392,77 @@ export class ElevatorStack extends cdk.Stack {
     });
 
     // Build callback URLs list
-    const callbackUrls = ['http://localhost:5173/', siteUrl];
+    const allowLocalhost = this.node.tryGetContext('allowLocalhost') === true;
+    const callbackUrls = [siteUrl];
+    if (allowLocalhost) {
+      callbackUrls.push('http://localhost:5173/');
+    }
     if (externalUrl) {
       callbackUrls.push(externalUrl);
     }
 
-    // Create SAML Identity Provider if metadata URL is provided
+    // =============================================================================
+    // IAM Identity Center SAML Application (Custom Resource)
+    // =============================================================================
+    const idcRegion = props.idcRegion || this.region;
+    const idcAccessGroup = props.idcAccessGroup;
+    const oauthDomainPrefix = `elevator-${envName}-${this.account}`;
+
+    // Lambda for managing IDC SAML application (no external dependencies, uses built-in boto3)
+    const idcAppFunction = new lambda.Function(this, 'IdcAppFunction', {
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../lambda/idc-app')),
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'index.handler',
+      timeout: cdk.Duration.minutes(5),
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+
+    // Grant permissions for IDC operations
+    idcAppFunction.addToRolePolicy(new iam.PolicyStatement({
+      actions: [
+        'sso:*',
+        'identitystore:ListGroups',
+      ],
+      resources: ['*'],
+    }));
+
+    // Custom Resource Provider
+    const idcAppProvider = new cr.Provider(this, 'IdcAppProvider', {
+      onEventHandler: idcAppFunction,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+
+    // Custom Resource for IDC SAML Application
+    const idcApp = new cdk.CustomResource(this, 'IdcApp', {
+      serviceToken: idcAppProvider.serviceToken,
+      properties: {
+        idcRegion: idcRegion,
+        cognitoRegion: this.region,
+        userPoolId: this.userPool.userPoolId,
+        oauthDomain: oauthDomainPrefix,
+        accessGroup: idcAccessGroup,
+        appName: 'Elevator',
+        appDescription: 'Temporary Elevated Access Management',
+      },
+    });
+
+    // Get metadata URL from Custom Resource
+    const samlMetadataUrl = idcApp.getAttString('metadataUrl');
+
+    // Create SAML Identity Provider
     const supportedIdentityProviders: cognito.UserPoolClientIdentityProvider[] = [
       cognito.UserPoolClientIdentityProvider.COGNITO,
     ];
 
-    if (props.samlMetadataUrl) {
-      const samlProvider = new cognito.UserPoolIdentityProviderSaml(this, 'IDCSamlProvider', {
-        userPool: this.userPool,
-        name: 'IDC',
-        metadata: cognito.UserPoolIdentityProviderSamlMetadata.url(props.samlMetadataUrl),
-        attributeMapping: {
-          email: cognito.ProviderAttribute.other('Email'),
-        },
-      });
-      supportedIdentityProviders.push(cognito.UserPoolClientIdentityProvider.custom(samlProvider.providerName));
-    }
+    const samlProvider = new cognito.UserPoolIdentityProviderSaml(this, 'IDCSamlProvider', {
+      userPool: this.userPool,
+      name: 'IDC',
+      metadata: cognito.UserPoolIdentityProviderSamlMetadata.url(samlMetadataUrl),
+      attributeMapping: {
+        email: cognito.ProviderAttribute.other('Email'),
+      },
+    });
+    supportedIdentityProviders.push(cognito.UserPoolClientIdentityProvider.custom(samlProvider.providerName));
 
     this.userPoolClient = new cognito.UserPoolClient(this, 'UserPoolClient', {
       userPool: this.userPool,

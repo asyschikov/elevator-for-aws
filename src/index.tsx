@@ -7,8 +7,7 @@ import "@cloudscape-design/global-styles/index.css";
 import { Amplify } from "aws-amplify";
 import config from "./config.json";
 
-const isLocalDev = typeof window !== 'undefined' && window.location.hostname === 'localhost';
-const redirectUrl = isLocalDev ? 'http://localhost:5173/' : `https://${config.appDomain}/`;
+const redirectUrl = `${window.location.origin}/`;
 
 Amplify.configure({
   Auth: {

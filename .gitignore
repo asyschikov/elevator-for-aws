@@ -49,3 +49,6 @@ src/config.json
 .mypy_cache
 .claude
 .idea
+
+# Deployment params (contains environment-specific values)
+deployment2/00-params.sh
