@@ -153,7 +153,29 @@ After creating the pipeline, you must approve the GitHub connection in the AWS C
 
 The pipeline does not trigger automatically. To deploy, manually start the pipeline:
 - In AWS Console: **CodePipeline > elevator-{env} > Release change**
-- Or via CLI: `aws codepipeline start-pipeline-execution --name elevator-{env}`
+- Or via CLI: `aws codepipeline start-pipeline-execution --name elevator-$ELEVATOR_ENV`
+
+### Custom Domain with Pipeline
+
+Custom domain setup requires interactive DNS configuration, so it must be done manually (not via pipeline).
+
+**Option A: Set up custom domain before creating pipeline (recommended)**
+
+1. Set `ELEVATOR_CUSTOM_DOMAIN` in `00-params.sh`
+2. Run `./03-create-domain-and-cert.sh` and configure NS records
+3. Run `./02-deploy.sh` for initial deployment
+4. Run `./create-pipeline.sh` to create the pipeline
+
+The pipeline will include the custom domain configuration.
+
+**Option B: Add custom domain to existing pipeline**
+
+If you already have a pipeline and want to add a custom domain:
+
+1. Set `ELEVATOR_CUSTOM_DOMAIN` in `00-params.sh`
+2. Run `./03-create-domain-and-cert.sh` and configure NS records
+3. Run `./create-pipeline.sh` again to update the pipeline with the new env var
+4. Trigger the pipeline to deploy with the custom domain
 
 ### Pipeline Variables
 
