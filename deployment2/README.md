@@ -30,17 +30,19 @@ cp 00-params-template.sh 00-params.sh
 
 ## Deployment
 
-### Quick Start (Management Account)
-
-If deploying to the AWS Organizations management account:
+### Quick Start
 
 ```bash
-./02-deploy.sh
+# 1. (Optional) Set up custom domain first
+./02-create-domain-and-cert.sh
+
+# 2. Deploy Elevator
+./03-deploy.sh
 ```
 
 ### Deploying to a Member Account
 
-If deploying to a member account, you need delegated admin permissions first. This is a one-time setup that must be done from the **management account**.
+If deploying to a member account (not the management account), you need delegated admin permissions first. This is a one-time setup from the **management account**.
 
 **Option A: Run the script (from management account)**
 ```bash
@@ -54,10 +56,7 @@ Register the Elevator account as delegated administrator for:
 - AWS CloudTrail
 - IAM Identity Center
 
-Then deploy from the Elevator account:
-```bash
-./02-deploy.sh
-```
+Then deploy from the Elevator account.
 
 ### What Gets Deployed
 
@@ -71,11 +70,9 @@ The deployment creates:
 
 ## Custom Domain (Optional)
 
-You can use a custom domain like `elevator.example.com` instead of the CloudFront domain.
+Use a custom domain like `elevator.example.com` instead of the CloudFront domain.
 
-### Option 1: Set up custom domain before first deployment
-
-If you want to use a custom domain from the start:
+### Recommended: Set up before first deployment
 
 1. **Set the domain in params**
    ```bash
@@ -85,52 +82,33 @@ If you want to use a custom domain from the start:
 
 2. **Create DNS zone and certificate**
    ```bash
-   ./03-create-domain-and-cert.sh
+   ./02-create-domain-and-cert.sh
    ```
    This creates a Route53 hosted zone and ACM certificate. The script will:
-   - Start the deployment
    - Display NS records once the hosted zone is created
    - Wait for you to configure these NS records at your domain registrar
    - Complete once DNS propagates and the certificate is validated
 
 3. **Deploy the application**
    ```bash
-   ./02-deploy.sh
-   ```
-   The deployment automatically:
-   - Looks up the certificate and hosted zone
-   - Configures CloudFront with the custom domain
-   - Creates an A record pointing to CloudFront
-
-### Option 2: Add custom domain to existing deployment
-
-If you already deployed without a custom domain and want to add one later:
-
-1. **Set the domain in params**
-   ```bash
-   # In 00-params.sh
-   export ELEVATOR_CUSTOM_DOMAIN=elevator.example.com
+   ./03-deploy.sh
    ```
 
-2. **Create DNS zone and certificate**
-   ```bash
-   ./03-create-domain-and-cert.sh
-   ```
-   Follow the prompts to configure NS records at your domain registrar.
+### Adding custom domain later
 
-3. **Redeploy to add custom domain**
-   ```bash
-   ./02-deploy.sh
-   ```
-   This updates the existing stack with the custom domain configuration.
+If you already deployed without a custom domain:
+
+1. Set `ELEVATOR_CUSTOM_DOMAIN` in `00-params.sh`
+2. Run `./02-create-domain-and-cert.sh`
+3. Redeploy with `./03-deploy.sh`
 
 ## Deployments with CodePipeline (Optional)
 
-Instead of running `./02-deploy.sh` locally, you can set up a CodePipeline to deploy from AWS.
+Instead of running `./03-deploy.sh` locally, you can set up a CodePipeline to deploy from AWS.
 
 ### Create the Pipeline
 
-After your initial deployment with `./02-deploy.sh`, run:
+After your initial deployment with `./03-deploy.sh`, run:
 
 ```bash
 ./create-pipeline.sh
@@ -157,29 +135,23 @@ The pipeline does not trigger automatically. To deploy, manually start the pipel
 
 ### Custom Domain with Pipeline
 
-Custom domain setup requires interactive DNS configuration, so it must be done manually (not via pipeline).
+Custom domain setup is interactive and must be done manually (not via pipeline).
 
-**Option A: Set up custom domain before creating pipeline (recommended)**
+**Recommended: Set up custom domain before creating pipeline**
 
 1. Set `ELEVATOR_CUSTOM_DOMAIN` in `00-params.sh`
-2. Run `./03-create-domain-and-cert.sh` and configure NS records
-3. Run `./02-deploy.sh` for initial deployment
+2. Run `./02-create-domain-and-cert.sh` and configure NS records
+3. Run `./03-deploy.sh` for initial deployment
 4. Run `./create-pipeline.sh` to create the pipeline
 
-The pipeline will include the custom domain configuration.
-
-**Option B: Add custom domain to existing pipeline**
-
-If you already have a pipeline and want to add a custom domain:
+**Adding custom domain to existing pipeline**
 
 1. Set `ELEVATOR_CUSTOM_DOMAIN` in `00-params.sh`
-2. Run `./03-create-domain-and-cert.sh` and configure NS records
-3. Run `./create-pipeline.sh` again to update the pipeline with the new env var
+2. Run `./02-create-domain-and-cert.sh` and configure NS records
+3. Run `./create-pipeline.sh` again to update the pipeline
 4. Trigger the pipeline to deploy with the custom domain
 
 ### Pipeline Variables
-
-You can optionally set these in `00-params.sh`:
 
 | Variable | Description |
 |----------|-------------|
@@ -194,9 +166,9 @@ You can optionally set these in `00-params.sh`:
 | `00-params-template.sh` | Template for deployment parameters |
 | `00-params.sh` | Your deployment parameters (not in git) |
 | `01-delegate.sh` | Set up delegated admin (run from management account) |
-| `02-deploy.sh` | Deploy the Elevator stack |
-| `03-create-domain-and-cert.sh` | Set up custom domain and certificate |
-| `create-pipeline.sh` | Create CodePipeline for automated deployments |
+| `02-create-domain-and-cert.sh` | Set up custom domain and certificate (optional) |
+| `03-deploy.sh` | Deploy the Elevator stack |
+| `create-pipeline.sh` | Create CodePipeline for deployments |
 | `deploy-frontend.sh` | Redeploy frontend only |
 | `generate-config.py` | Generate frontend config from stack outputs |
 | `delete-idc-app.py` | Manually delete the IDC SAML application |
@@ -206,7 +178,7 @@ You can optionally set these in `00-params.sh`:
 ### Local deployment
 
 ```bash
-./02-deploy.sh
+./03-deploy.sh
 ```
 
 ### With pipeline

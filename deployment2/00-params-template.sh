@@ -20,7 +20,7 @@ export ELEVATOR_AUDITOR_GROUP=Elevator-Auditors
 export ELEVATOR_IDC_ACCESS_GROUP=Developers
 
 # Custom domain for Elevator (optional, e.g., elevator.example.com)
-# If set, run ./03-create-domain-and-cert.sh before deploying to set up DNS and certificate
+# If set, run ./02-create-domain-and-cert.sh before deploying to set up DNS and certificate
 export ELEVATOR_CUSTOM_DOMAIN=
 
 # Allow localhost redirect URLs in Cognito (for local development)
