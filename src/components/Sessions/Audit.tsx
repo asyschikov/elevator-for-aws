@@ -24,7 +24,39 @@ import Status from "../Shared/Status";
 import "../../index.css";
 import Logs from "../Sessions/Logs";
 
-function convertAwsDateTime(awsDateTime) {
+interface SessionItem {
+  id: string;
+  email: string;
+  accountName: string;
+  accountId: string;
+  role: string;
+  startTime: string;
+  endTime?: string;
+  duration: number;
+  justification: string;
+  ticketNo?: string;
+  status: string;
+  approvers?: string[];
+  approver?: string;
+  comment?: string;
+  revoker?: string;
+  revokeComment?: string;
+  updatedAt?: string;
+}
+
+interface AuditProps {
+  addNotification: (notifications: unknown[]) => void;
+  setActiveHref: (href: string) => void;
+  user: string;
+  group?: string[];
+}
+
+interface Preferences {
+  pageSize?: number;
+  visibleContent?: readonly string[];
+}
+
+function convertAwsDateTime(awsDateTime: string): string {
   // Parse AWS datetime string into a Date object
   const date = new Date(awsDateTime);
   // Format date in user-friendly format
@@ -44,68 +76,61 @@ const COLUMN_DEFINITIONS = [
     id: "id",
     sortingField: "id",
     header: "Id",
-    cell: (item) => item.id,
+    cell: (item: SessionItem) => item.id,
     width: 50,
   },
   {
     id: "email",
     sortingField: "email",
     header: "Requester",
-    cell: (item) => item.email,
+    cell: (item: SessionItem) => item.email,
     minWidth: 160,
   },
   {
     id: "account",
     sortingField: "account",
     header: "Account",
-    cell: (item) => item.accountName,
+    cell: (item: SessionItem) => item.accountName,
     minWidth: 10,
   },
   {
     id: "role",
     sortingField: "role",
     header: "Role",
-    cell: (item) => item.role,
+    cell: (item: SessionItem) => item.role,
     minWidth: 10,
   },
   {
     id: "startTime",
     sortingField: "startTime",
     header: "StartTime",
-    cell: (item) => convertAwsDateTime(item.startTime),
+    cell: (item: SessionItem) => convertAwsDateTime(item.startTime),
     minWidth: 160,
   },
   {
     id: "endTime",
     sortingField: "endTime",
     header: "EndTime",
-    cell: (item) => convertAwsDateTime(item.endTime),
+    cell: (item: SessionItem) => item.endTime ? convertAwsDateTime(item.endTime) : "-",
     minWidth: 10,
   },
-  // {
-  //   id: "duration",
-  //   sortingField: "duration",
-  //   header: "Duration",
-  //   cell: (item) => `${item.duration} hours`,
-  //   maxWidth: 120,
-  // },
   {
     id: "justification",
     sortingField: "justification",
     header: "Justification",
-    cell: (item) => item.justification,
+    cell: (item: SessionItem) => item.justification,
     maxWidth: 200,
   },
   {
     id: "status",
     sortingField: "status",
     header: "Status",
-    cell: (item) => <Status status={item.status} />,
+    cell: (item: SessionItem) => <Status status={item.status} />,
     minWidth: 10,
   },
 ];
 
-const MyCollectionPreferences = ({ preferences, setPreferences }) => {
+const MyCollectionPreferences = ({ preferences, setPreferences }: { preferences: Preferences; setPreferences: (prefs: Preferences) => void }) => {
   return (
     <CollectionPreferences
       title="Preferences"
@@ -148,7 +173,7 @@ const MyCollectionPreferences = ({ preferences, setPreferences }) => {
   );
 };
 
-function EmptyState({ title, subtitle, action }: { title: any; subtitle: any; action?: any }) {
+function EmptyState({ title, subtitle, action }: { title: string; subtitle: string; action?: React.ReactNode }) {
   return (
     <Box textAlign="center">
       <Box variant="strong">{title}</Box>
@@ -165,8 +190,8 @@ const defaultStatus: { label: string; value: string } = {
   value: "0",
 };
 
-function Audit(props) {
-  const [preferences, setPreferences] = useState({
+function Audit(props: AuditProps) {
+  const [preferences, setPreferences] = useState<Preferences>({
     pageSize: 10,
     visibleContent: [
       "email",
@@ -189,27 +214,25 @@ function Audit(props) {
   });
 
   // Filter for status "ended" or "revoked" and current user, then sort
-  const allItems = useMemo(() => {
-    if (!requestsQuery.data || !Array.isArray(requestsQuery.data)) return [];
-    return [...requestsQuery.data]
-      .filter((item: Record<string, unknown>) =>
+  const allItems = useMemo((): SessionItem[] => {
+    const data = requestsQuery.data as { items?: SessionItem[] } | undefined;
+    const items = data?.items;
+    if (!items) return [];
+    return items
+      .filter((item) =>
         // Filter by status
         (item.status === 'ended' || item.status === 'revoked') &&
         // Filter by user
-        (item.email === props.user ||
-          (Array.isArray(item.approvers) && item.approvers.includes(props.user)))
+        (item.email === props.user || item.approvers?.includes(props.user))
       )
-      .sort((a: Record<string, unknown>, b: Record<string, unknown>) =>
-        ((a.updatedAt as string) < (b.updatedAt as string) ? 1 : -1)
-      );
+      .sort((a, b) => ((a.updatedAt ?? "") < (b.updatedAt ?? "") ? 1 : -1));
   }, [requestsQuery.data, props.user]);
 
   const selectStatusOptions = useMemo(() => {
     const optionSet: string[] = [];
-    allItems.forEach((item: Record<string, unknown>) => {
-      const status = item.status as string;
-      if (optionSet.indexOf(status) === -1) {
-        optionSet.push(status);
+    allItems.forEach((item) => {
+      if (optionSet.indexOf(item.status) === -1) {
+        optionSet.push(item.status);
       }
     });
     optionSet.sort();
@@ -220,7 +243,7 @@ function Audit(props) {
     return options;
   }, [allItems]);
 
-  function matchesStatus(item: Record<string, unknown>, selectedStatus: { label: string; value: string }) {
+  function matchesStatus(item: SessionItem, selectedStatus: { label: string; value: string }) {
     return (
       selectedStatus === defaultStatus || item.status === selectedStatus.label
     );
@@ -236,13 +259,13 @@ function Audit(props) {
     paginationProps,
   } = useCollection(allItems, {
     filtering: {
-      filteringFunction: (item, filteringText) => {
+      filteringFunction: (item: SessionItem, filteringText: string) => {
         if (!matchesStatus(item, selectedOption)) {
           return false;
         }
         const filteringTextLowerCase = filteringText.toLowerCase();
 
-        return SEARCHABLE_COLUMNS.map((key) => item[key]).some(
+        return SEARCHABLE_COLUMNS.map((key) => item[key as keyof SessionItem]).some(
           (value) =>
             typeof value === "string" &&
             value.toLowerCase().indexOf(filteringTextLowerCase) > -1
@@ -275,7 +298,7 @@ function Audit(props) {
     setViewLogs(true);
   }
 
-  const ValueWithLabel = ({ label, children }) => (
+  const ValueWithLabel = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <div>
       <div className="headings">
         <Box color="inherit" fontSize="body-m">

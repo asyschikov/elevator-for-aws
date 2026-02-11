@@ -159,6 +159,22 @@ Custom domain setup is interactive and must be done manually (not via pipeline).
 | `ELEVATOR_REPO_NAME` | Repository name (auto-detected from git remote) |
 | `ELEVATOR_BRANCH` | Branch to deploy (defaults to current branch) |
 
+## Local Development
+
+Run the frontend locally against a deployed backend (requires `ELEVATOR_ALLOW_LOCALHOST=true`):
+
+```bash
+# Generate config pointing to localhost
+./generate-local-config.sh
+
+# Start dev server
+cd .. && npm run dev
+```
+
+The frontend runs at http://localhost:5173 and connects to your deployed API.
+
+**Note:** Localhost must be enabled in Cognito callbacks. Set `ELEVATOR_ALLOW_LOCALHOST=true` in `00-params.sh` and redeploy.
+
 ## Scripts
 
 | Script | Description |
@@ -170,6 +186,7 @@ Custom domain setup is interactive and must be done manually (not via pipeline).
 | `03-deploy.sh` | Deploy the Elevator stack |
 | `create-pipeline.sh` | Create CodePipeline for deployments |
 | `deploy-frontend.sh` | Redeploy frontend only |
+| `generate-local-config.sh` | Generate config for local development |
 | `generate-config.py` | Generate frontend config from stack outputs |
 | `delete-idc-app.py` | Manually delete the IDC SAML application |
 
