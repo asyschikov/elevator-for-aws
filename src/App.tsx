@@ -5,13 +5,10 @@
 import React, { useEffect, useState } from "react";
 import { signInWithRedirect, getCurrentUser, fetchAuthSession } from "aws-amplify/auth";
 import { Hub } from "aws-amplify/utils";
-import { Spin, Layout } from "antd";
+import { Spin } from "antd";
 import Nav from "./components/Navigation/Nav";
-import home from "./media/Home.svg";
 import "./index.css";
-import { Button, SpaceBetween, Container, Box } from "@cloudscape-design/components";
-
-const { Header, Content } = Layout;
+import { Button, SpaceBetween, Box, Icon, Grid, Container } from "@cloudscape-design/components";
 
 // Amplify is configured in index.tsx
 
@@ -21,25 +18,66 @@ function Home({ loading }: { loading: boolean }) {
   };
 
   return (
-    <Layout className="site-layout">
-      <Header className="site-layout-background" style={{ padding: 0 }} />
-      <Content className="layout">
-        <Spin spinning={loading} size="large">
-          <div style={{ display: "flex", justifyContent: "center", padding: "40px" }}>
+    <div className="signin-page">
+      <Spin spinning={loading} size="large">
+        <div className="signin-content">
+          <SpaceBetween size="xxl" alignItems="center">
+            {/* Hero */}
+            <SpaceBetween size="m" alignItems="center">
+              <Box variant="h1" fontSize="display-l" fontWeight="bold">
+                Elevator
+              </Box>
+              <Box variant="p" fontSize="heading-m" color="text-body-secondary" textAlign="center">
+                Temporary Elevated Access Management
+              </Box>
+            </SpaceBetween>
+
+            {/* Sign In Card */}
             <Container>
-              <SpaceBetween size="l">
-                <Box variant="h2">Elevator - Temporary Elevated Access Management</Box>
-                <Box>Sign in to request or approve temporary elevated access.</Box>
+              <SpaceBetween size="l" alignItems="center">
+                <Box variant="p" textAlign="center">
+                  Request and approve time-bound privileged access to your AWS accounts
+                </Box>
                 <Button variant="primary" onClick={handleSignIn}>
-                  Sign In
+                  Sign in with SSO
                 </Button>
               </SpaceBetween>
             </Container>
-          </div>
-          <img src={home} alt="Homepage" className="home" />
-        </Spin>
-      </Content>
-    </Layout>
+
+            {/* Features */}
+            <Grid
+              gridDefinition={[
+                { colspan: { default: 12, s: 4 } },
+                { colspan: { default: 12, s: 4 } },
+                { colspan: { default: 12, s: 4 } },
+              ]}
+            >
+              <SpaceBetween size="xs" alignItems="center">
+                <Icon name="lock-private" size="large" />
+                <Box fontWeight="bold">Just-in-Time</Box>
+                <Box variant="small" color="text-body-secondary" textAlign="center">
+                  Access expires automatically
+                </Box>
+              </SpaceBetween>
+              <SpaceBetween size="xs" alignItems="center">
+                <Icon name="check" size="large" />
+                <Box fontWeight="bold">Approval Workflow</Box>
+                <Box variant="small" color="text-body-secondary" textAlign="center">
+                  Configurable policies
+                </Box>
+              </SpaceBetween>
+              <SpaceBetween size="xs" alignItems="center">
+                <Icon name="search" size="large" />
+                <Box fontWeight="bold">Full Audit Trail</Box>
+                <Box variant="small" color="text-body-secondary" textAlign="center">
+                  CloudTrail integration
+                </Box>
+              </SpaceBetween>
+            </Grid>
+          </SpaceBetween>
+        </div>
+      </Spin>
+    </div>
   );
 }
 

@@ -163,3 +163,18 @@ ul {
 .site-layout .site-layout-background {
   background: #fff;
 }
+
+/* Sign-in page */
+.signin-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.signin-content {
+  max-width: 600px;
+  padding: 3rem 2rem;
+  text-align: center;
+}
