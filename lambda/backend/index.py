@@ -931,13 +931,20 @@ def handle_start_request_logs(request_id: str) -> CloudTrailQueryResponse:
     # Build CloudTrail Lake SQL query
     username = request.email or request.username or ''
 
-    end_time = request.endTime or datetime.now(timezone.utc).isoformat()
+    end_time_raw = request.endTime or datetime.now(timezone.utc).isoformat()
+
+    # CloudTrail Lake expects timestamps as 'YYYY-MM-DD HH:MM:SS' (no T, no timezone)
+    def to_ct_timestamp(ts: str) -> str:
+        return ts.replace('T', ' ').split('+')[0].split('.')[0].split('Z')[0]
+
+    start_ts = to_ct_timestamp(request.startTime)
+    end_ts = to_ct_timestamp(end_time_raw)
 
     query = (
         f"SELECT eventID, eventName, eventSource, eventTime "
         f"FROM {event_data_store_id} "
-        f"WHERE eventTime > '{request.startTime}' "
-        f"AND eventTime < '{end_time}' "
+        f"WHERE eventTime > '{start_ts}' "
+        f"AND eventTime < '{end_ts}' "
         f"AND lower(useridentity.principalId) LIKE '%:{username.lower()}%' "
         f"AND useridentity.sessionContext.sessionIssuer.arn LIKE '%{request.role}%' "
         f"AND recipientAccountId='{request.accountId}'"
