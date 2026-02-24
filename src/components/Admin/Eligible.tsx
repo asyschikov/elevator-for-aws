@@ -654,23 +654,23 @@ function Eligible(props: EligibleProps) {
         }
         filter={
           <div style={{ display: 'flex', flexWrap: 'wrap', flexGrow: 10, marginRight: '2rem' }}>
-            <TextFilter
-              {...filterProps}
-              filteringPlaceholder="Find policy"
-              countText={String(filteredItemsCount)}
-              style={{ flexGrow: 6, width: 'auto', maxWidth: 728, marginRight: '1rem' }}
-            />
-            <Select
-              {...filterProps}
-              style={{ maxWidth: 130, flexGrow: 2, width: 'auto', marginRight: '1rem' }}
-              selectedAriaLabel="Selected"
-              options={selectTypeOptions}
-              selectedOption={selectedOption}
-              onChange={({ detail }) =>
-                setSelectedOption(detail.selectedOption as { label: string; value: string })
-              }
-              ariaDescribedby={null}
-            />
+            <div style={{ flexGrow: 6, maxWidth: 728, marginRight: '1rem' }}>
+              <TextFilter
+                {...filterProps}
+                filteringPlaceholder="Find policy"
+                countText={String(filteredItemsCount)}
+              />
+            </div>
+            <div style={{ maxWidth: 130, flexGrow: 2, marginRight: '1rem' }}>
+              <Select
+                selectedAriaLabel="Selected"
+                options={selectTypeOptions}
+                selectedOption={selectedOption}
+                onChange={({ detail }) =>
+                  setSelectedOption(detail.selectedOption as { label: string; value: string })
+                }
+              />
+            </div>
           </div>
         }
         columnDefinitions={columnDefinitions}

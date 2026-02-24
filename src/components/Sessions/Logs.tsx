@@ -243,12 +243,13 @@ function Logs(props) {
         }
         filter={
           <div style={{ display: 'flex', flexWrap: 'wrap', flexGrow: 10, marginRight: '2rem' }}>
-            <TextFilter
-              {...filterProps}
-              filteringPlaceholder="Search Logs"
-              countText={String(filteredItemsCount)}
-              style={{ flexGrow: 6, width: 'auto', maxWidth: 728, marginRight: '1rem' }}
-            />
+            <div style={{ flexGrow: 6, maxWidth: 728, marginRight: '1rem' }}>
+              <TextFilter
+                {...filterProps}
+                filteringPlaceholder="Search Logs"
+                countText={String(filteredItemsCount)}
+              />
+            </div>
           </div>
         }
         columnDefinitions={COLUMN_DEFINITIONS}
