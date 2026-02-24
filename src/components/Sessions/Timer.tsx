@@ -2,44 +2,47 @@
 // This AWS Content is provided subject to the terms of the AWS Customer Agreement available at
 // http://aws.amazon.com/agreement or other written agreement between Customer and either
 // Amazon Web Services, Inc. or Amazon Web Services EMEA SARL or both.
-import React from "react";
-import "antd/dist/antd.css";
-import { Statistic } from "antd";
-import "../../index.css";
+import React, { useState, useEffect } from "react";
+import Box from "@cloudscape-design/components/box";
 
-const { Countdown } = Statistic;
+function formatCountdown(ms: number): string {
+  if (ms <= 0) return "0h:00m:00s";
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${hours}h:${String(minutes).padStart(2, "0")}m:${String(seconds).padStart(2, "0")}s`;
+}
+
+function Countdown({ title, value }: { title: string; value: number }) {
+  const [remaining, setRemaining] = useState(value - Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRemaining(value - Date.now());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [value]);
+
+  return (
+    <div>
+      <Box color="inherit" fontSize="body-m">{title}</Box>
+      <Box fontSize="heading-m" fontWeight="bold">{formatCountdown(remaining)}</Box>
+    </div>
+  );
+}
 
 function Timer(props) {
   const startTime = Date.parse(props.item.startTime);
   const createTime = Date.parse(props.item.createdAt);
   if (props.item.status === "scheduled") {
-    return (
-      <Countdown
-        format={"H[h]:mm[m]:ss[s]"}
-        // className="countdown"
-        title="Elevated access starts in"
-        value={startTime}
-      />
-    );
-  } else if (props.item.status === "in progress") {
+    return <Countdown title="Elevated access starts in" value={startTime} />;
+  } else if (props.item.sessionStatus === "in-progress") {
     const ends = startTime + props.item.duration * 60 * 60 * 1000;
-    return (
-      <Countdown
-        format={"H[h]:mm[m]:ss[s]"}
-        title="Elevated access ends in"
-        value={ends}
-      />
-    );
+    return <Countdown title="Elevated access ends in" value={ends} />;
   } else if (props.item.status === "pending") {
     const expires = createTime + 60 * 60 * 1000 * props.expiry;
-    return (
-      <Countdown
-        format={"H[h]:mm[m]:ss[s]"}
-        // className="countdown"
-        title="request expires in"
-        value={expires}
-      />
-    );
+    return <Countdown title="Request expires in" value={expires} />;
   } else return null;
 }
 

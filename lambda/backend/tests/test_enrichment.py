@@ -15,14 +15,14 @@ class TestGetEmail:
 
     def test_returns_email_for_existing_user(self, aws_environment):
         import index
-        index.settings.auth_team_userpoolid = aws_environment['user_pool_id']
+        index.settings.auth_elevator_userpoolid = aws_environment['user_pool_id']
 
         result = index.get_email('testuser')
         assert result == 'test@example.com'
 
     def test_returns_none_for_nonexistent_user(self, aws_environment):
         import index
-        index.settings.auth_team_userpoolid = aws_environment['user_pool_id']
+        index.settings.auth_elevator_userpoolid = aws_environment['user_pool_id']
 
         result = index.get_email('nonexistent')
         assert result is None
@@ -174,7 +174,7 @@ class TestUpdateRequestDetails:
 
     def test_enriches_request_with_all_details(self, aws_environment):
         import index
-        index.settings.auth_team_userpoolid = aws_environment['user_pool_id']
+        index.settings.auth_elevator_userpoolid = aws_environment['user_pool_id']
 
         group_id = aws_environment['group_id']
         account_id = aws_environment['org_account_id']
@@ -193,7 +193,8 @@ class TestUpdateRequestDetails:
         request_id = 'test-enrichment-request'
         aws_environment['dynamodb_tables']['requests'].put_item(Item={
             'id': request_id,
-            'username': 'testuser',
+            'email': 'test@example.com',
+            'username': 'test@example.com',
             'accountId': account_id,
             'roleId': permission_set_arn,
             'status': 'pending'
@@ -207,8 +208,8 @@ class TestUpdateRequestDetails:
             'groupIds': [group_id]
         })
 
-        # Run enrichment
-        index.update_request_details(request_id, 'testuser', account_id, permission_set_arn)
+        # Run enrichment (email provided, skips Cognito lookup)
+        index.update_request_details(request_id, 'test@example.com', account_id, permission_set_arn, email='test@example.com')
 
         # Verify the request was updated
         result = aws_environment['dynamodb_tables']['requests'].get_item(

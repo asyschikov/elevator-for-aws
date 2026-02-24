@@ -19,6 +19,7 @@ from types_boto3_dynamodb import DynamoDBServiceResource
 from types_boto3_dynamodb.service_resource import Table
 from types_boto3_sso_admin import SSOAdminClient
 from types_boto3_events import EventBridgeClient
+from types_boto3_scheduler import EventBridgeSchedulerClient
 from types_boto3_organizations import OrganizationsClient
 from types_boto3_identitystore import IdentityStoreClient
 from types_boto3_cognito_idp import CognitoIdentityProviderClient
@@ -36,7 +37,6 @@ from aws_lambda_powertools.utilities.data_classes import APIGatewayProxyEventV2
 # Pydantic models for type safety
 from models.db_models import (
     RequestItem,
-    SessionItem,
     SettingsItem,
     EligibilityItem,
 )
@@ -58,7 +58,6 @@ from models.api_models import (
     RevokeResponse,
     CreateRequestInput,
     UpdateRequestInput,
-    UpdateSessionInput,
     UserPolicyRequest,
     GrantRequestResponse,
     RevokeRequestResponse,
@@ -107,6 +106,7 @@ app = APIGatewayHttpResolver(enable_validation=True, cors=cors)
 dynamodb: DynamoDBServiceResource = boto3.resource('dynamodb')
 sso_admin: SSOAdminClient = boto3.client('sso-admin', region_name=settings.idc_region)
 events: EventBridgeClient = boto3.client('events')
+scheduler: EventBridgeSchedulerClient = boto3.client('scheduler')
 organizations: OrganizationsClient = boto3.client('organizations')
 identitystore: IdentityStoreClient = boto3.client('identitystore', region_name=settings.idc_region)
 cognito: CognitoIdentityProviderClient = boto3.client('cognito-idp', config=Config(user_agent_extra="team-idc"))
@@ -116,7 +116,6 @@ session = boto3.Session()
 
 # Initialize DynamoDB tables
 requests_table: Table = dynamodb.Table(settings.requests_table)
-sessions_table: Table = dynamodb.Table(settings.sessions_table)
 approvers_table: Table = dynamodb.Table(settings.approvers_table)
 settings_table: Table = dynamodb.Table(settings.settings_table)
 eligibility_table: Table = dynamodb.Table(settings.eligibility_table)
@@ -552,11 +551,11 @@ def task_grant(event: RequestItem, instance_arn: Optional[str] = None) -> GrantR
         current_time = datetime.now(timezone.utc).isoformat()
         requests_table.update_item(
             Key={'id': request_id},
-            UpdateExpression='SET startTime = :time, #status = :status',
+            UpdateExpression='SET startTime = :time, #status = :status, sessionStatus = :ss',
             ExpressionAttributeNames={'#status': 'status'},
-            ExpressionAttributeValues={':time': current_time, ':status': 'in_progress'}
+            ExpressionAttributeValues={':time': current_time, ':status': 'granted', ':ss': 'in-progress'}
         )
-        
+
         # Prepare notification event
         notification_dict = request.model_dump()
         notification_dict['status'] = 'granted'
@@ -564,20 +563,12 @@ def task_grant(event: RequestItem, instance_arn: Optional[str] = None) -> GrantR
         handle_notifications(notification_event)
         logger.info("Access granted successfully", extra={"request_id": request_id})
 
-        # Update status to granted in DynamoDB
-        requests_table.update_item(
-            Key={'id': request_id},
-            UpdateExpression='SET #status = :status',
-            ExpressionAttributeNames={'#status': 'status'},
-            ExpressionAttributeValues={':status': 'granted'}
-        )
-
-        # Schedule revoke task using EventBridge
+        # Schedule revoke task using EventBridge Scheduler
         if duration_seconds > 0:
             logger.info("Scheduling revoke task", extra={"request_id": request_id, "duration_seconds": duration_seconds})
             try:
                 revoke_time = datetime.now(timezone.utc) + timedelta(seconds=duration_seconds)
-                # Create revoke event data for EventBridge
+                # Create revoke event data for EventBridge Scheduler
                 revoke_event_data = {
                     'id': request_id,
                     'roleId': permission_set_arn,
@@ -585,24 +576,23 @@ def task_grant(event: RequestItem, instance_arn: Optional[str] = None) -> GrantR
                     'accountId': account_id,
                 }
 
-                # Create a one-time scheduled rule
-                rule_name = f'{settings.revoke_rule_name}-{request_id}'
-                events.put_rule(
-                    Name=rule_name,
-                    ScheduleExpression=f'at({revoke_time.strftime("%Y-%m-%dT%H:%M:%S")})',
-                    State='ENABLED',
-                    Description=f'Revoke access for request {request_id}'
-                )
-
-                # Add Lambda target - use revocation function ARN if available, otherwise fallback
+                # Create a one-time schedule using EventBridge Scheduler
+                schedule_name = f'{settings.revoke_rule_name}-{request_id}'
                 revocation_arn = settings.revocation_function_arn
-                events.put_targets(
-                    Rule=rule_name,
-                    Targets=[{
-                        'Id': '1',
+                scheduler_role_arn = settings.scheduler_role_arn
+
+                scheduler.create_schedule(
+                    Name=schedule_name,
+                    ScheduleExpression=f'at({revoke_time.strftime("%Y-%m-%dT%H:%M:%S")})',
+                    ScheduleExpressionTimezone='UTC',
+                    FlexibleTimeWindow={'Mode': 'OFF'},
+                    Target={
                         'Arn': revocation_arn,
-                        'Input': json.dumps(revoke_event_data)
-                    }]
+                        'RoleArn': scheduler_role_arn,
+                        'Input': json.dumps(revoke_event_data),
+                    },
+                    ActionAfterCompletion='DELETE',
+                    Description=f'Revoke access for request {request_id}'
                 )
             except ClientError as schedule_error:
                 # Log the error but don't fail the grant operation
@@ -632,7 +622,7 @@ def task_grant(event: RequestItem, instance_arn: Optional[str] = None) -> GrantR
         raise
 
 
-def task_revoke(event: RequestItem, instance_arn: Optional[str] = None, result: Optional[bool] = None) -> RevokeResponse:
+def task_revoke(event: RequestItem, instance_arn: Optional[str] = None, result: Optional[bool] = None, is_scheduled: bool = False) -> RevokeResponse:
     """Handle revoke task - delete SSO account assignment"""
     request = event
     request_id = request.id
@@ -668,21 +658,22 @@ def task_revoke(event: RequestItem, instance_arn: Optional[str] = None, result: 
         request_item = request_response.get('Item')
         if request_item:
             request_obj = RequestItem(**request_item)
+            current_time = datetime.now(timezone.utc).isoformat()
             if request_obj.status == 'revoked':
-                current_time = datetime.now(timezone.utc).isoformat()
                 requests_table.update_item(
                     Key={'id': request_id},
-                    UpdateExpression='SET endTime = :time',
-                    ExpressionAttributeValues={':time': current_time}
+                    UpdateExpression='SET endTime = :time, sessionStatus = :ss',
+                    ExpressionAttributeValues={':time': current_time, ':ss': 'finished'}
                 )
             else:
+                new_status = 'ended' if is_scheduled else 'revoked'
                 requests_table.update_item(
                     Key={'id': request_id},
-                    UpdateExpression='SET #status = :status',
+                    UpdateExpression='SET #status = :status, endTime = :time, sessionStatus = :ss',
                     ExpressionAttributeNames={'#status': 'status'},
-                    ExpressionAttributeValues={':status': 'revoked'}
+                    ExpressionAttributeValues={':status': new_status, ':time': current_time, ':ss': 'finished'}
                 )
-        
+
         # Prepare notification event
         notification_dict = request.model_dump()
         notification_dict['status'] = 'ended'
@@ -854,7 +845,8 @@ def handle_get_entitlement(event: UserPolicyRequest) -> EntitlementResponse:
             permissions=permissions_list,
             approvalRequired=entitlement_item.approvalRequired,
             duration=str(max_duration),
-            autoApprovalOnCall=entitlement_item.autoApprovalOnCall
+            autoApprovalOnCall=entitlement_item.autoApprovalOnCall,
+            allowSelfApproval=entitlement_item.allowSelfApproval
         )
         eligibility.append(policy)
     
@@ -887,11 +879,9 @@ def handle_get_mgmt_permissions() -> ManagementPermissionsResponse:
 def handle_get_logs(query: str = '') -> CloudTrailQueryResponse:
     """Start CloudTrail Lake query"""
     cloudtrail: CloudTrailClient = boto3.client('cloudtrail')
-    event_data_store_id = settings.event_data_store_arn.split('/')[-1] if settings.event_data_store_arn else ''
 
     response = cloudtrail.start_query(
-        QueryStatement=query,
-        EventDataStore=event_data_store_id
+        QueryStatement=query
     )
 
     return CloudTrailQueryResponse(
@@ -903,105 +893,35 @@ def handle_get_logs(query: str = '') -> CloudTrailQueryResponse:
 def handle_query_logs(query_id: str) -> List[CloudTrailLogEntry]:
     """Get CloudTrail Lake query results"""
     cloudtrail: CloudTrailClient = boto3.client('cloudtrail')
-    event_data_store_id = settings.event_data_store_arn.split('/')[-1] if settings.event_data_store_arn else ''
 
     output = []
-    paginator = cloudtrail.get_paginator('get_query_results')
-    for page in paginator.paginate(
-        EventDataStore=event_data_store_id,
-        QueryId=query_id
-    ):
-        for row in page.get('QueryResultRows', []):
+    next_token = None
+    while True:
+        kwargs = {'QueryId': query_id}
+        if next_token:
+            kwargs['NextToken'] = next_token
+        response = cloudtrail.get_query_results(**kwargs)
+        for row in response.get('QueryResultRows', []):
             logs = {}
             for log in row:
                 for k, v in log.items():
                     logs[k] = v
             output.append(CloudTrailLogEntry(**logs))
+        next_token = response.get('NextToken')
+        if not next_token:
+            break
 
     return output
 
 
-# =============================================================================
-# Session Handlers
-# =============================================================================
-
-def handle_list_sessions(limit: int = 100, last_key: Optional[str] = None) -> DynamoDBScanResponse:
-    """List all sessions"""
-    scan_kwargs = {'Limit': limit}
-    if last_key:
-        scan_kwargs['ExclusiveStartKey'] = {'id': last_key}
-
-    response = sessions_table.scan(**scan_kwargs)
-    items = response.get('Items', [])
-    last_evaluated_key = response.get('LastEvaluatedKey', {}).get('id')
-
-    return DynamoDBScanResponse(
-        items=items,
-        lastKey=last_evaluated_key
-    )
-
-
-def handle_get_session(session_id: str) -> SessionItem:
-    """Get a session by ID"""
-    response = sessions_table.get_item(Key={'id': session_id})
+def handle_start_request_logs(request_id: str) -> CloudTrailQueryResponse:
+    """Start CloudTrail Lake query for a request and save queryId"""
+    response = requests_table.get_item(Key={'id': request_id})
     item = response.get('Item')
     if not item:
-        raise NotFoundError(f"Session '{session_id}' not found")
-    return SessionItem(**item)
+        raise NotFoundError(f"Request '{request_id}' not found")
 
-
-def handle_create_session(session: SessionItem) -> SessionItem:
-    """Create a new session"""
-    sessions_table.put_item(Item=session.model_dump(exclude_none=True))
-    return session
-
-
-def handle_update_session(session_id: str, updates: Dict[str, Any]) -> SessionItem:
-    """Update a session"""
-    # Build update expression
-    update_parts = []
-    expression_names = {}
-    expression_values = {}
-
-    for key, value in updates.items():
-        if key != 'id':  # Don't update the key
-            attr_name = f"#{key}"
-            attr_value = f":{key}"
-            update_parts.append(f"{attr_name} = {attr_value}")
-            expression_names[attr_name] = key
-            expression_values[attr_value] = value
-
-    if not update_parts:
-        raise BadRequestError("No fields to update")
-
-    update_expression = "SET " + ", ".join(update_parts)
-
-    response = sessions_table.update_item(
-        Key={'id': session_id},
-        UpdateExpression=update_expression,
-        ExpressionAttributeNames=expression_names,
-        ExpressionAttributeValues=expression_values,
-        ReturnValues='ALL_NEW'
-    )
-
-    return SessionItem(**response['Attributes'])
-
-
-def handle_delete_session(session_id: str) -> SuccessResponse:
-    """Delete a session"""
-    sessions_table.delete_item(Key={'id': session_id})
-    return SuccessResponse(message=f"Session '{session_id}' deleted")
-
-
-def handle_start_session_logs(session_id: str) -> CloudTrailQueryResponse:
-    """Start CloudTrail Lake query for a session and save queryId"""
-    # Get session
-    response = sessions_table.get_item(Key={'id': session_id})
-    item = response.get('Item')
-    if not item:
-        raise NotFoundError(f"Session '{session_id}' not found")
-
-    session = SessionItem(**item)
+    request = RequestItem(**item)
 
     # Get Event Data Store ID
     event_data_store_id = settings.event_data_store_arn.split('/')[-1] if settings.event_data_store_arn else ''
@@ -1009,35 +929,33 @@ def handle_start_session_logs(session_id: str) -> CloudTrailQueryResponse:
         raise BadRequestError("Event Data Store not configured")
 
     # Build CloudTrail Lake SQL query
-    # Remove 'idc_' prefix from username if present
-    username = session.username or ''
-    if username.startswith('idc_'):
-        username = username[4:]
+    username = request.email or request.username or ''
+
+    end_time = request.endTime or datetime.now(timezone.utc).isoformat()
 
     query = (
         f"SELECT eventID, eventName, eventSource, eventTime "
         f"FROM {event_data_store_id} "
-        f"WHERE eventTime > '{session.startTime}' "
-        f"AND eventTime < '{session.endTime}' "
+        f"WHERE eventTime > '{request.startTime}' "
+        f"AND eventTime < '{end_time}' "
         f"AND lower(useridentity.principalId) LIKE '%:{username.lower()}%' "
-        f"AND useridentity.sessionContext.sessionIssuer.arn LIKE '%{session.role}%' "
-        f"AND recipientAccountId='{session.accountId}'"
+        f"AND useridentity.sessionContext.sessionIssuer.arn LIKE '%{request.role}%' "
+        f"AND recipientAccountId='{request.accountId}'"
     )
 
-    logger.info("Starting CloudTrail query", extra={"session_id": session_id, "query": query})
+    logger.info("Starting CloudTrail query", extra={"request_id": request_id, "query": query})
 
     # Start the query
     cloudtrail: CloudTrailClient = boto3.client('cloudtrail')
     cloudtrail_response = cloudtrail.start_query(
-        QueryStatement=query,
-        EventDataStore=event_data_store_id
+        QueryStatement=query
     )
 
     query_id = cloudtrail_response['QueryId']
 
-    # Save queryId to session
-    sessions_table.update_item(
-        Key={'id': session_id},
+    # Save queryId to request
+    requests_table.update_item(
+        Key={'id': request_id},
         UpdateExpression='SET queryId = :qid',
         ExpressionAttributeValues={':qid': query_id}
     )
@@ -1089,7 +1007,7 @@ def get_email(username):
     users_remain = True
     while users_remain:
         kwargs = {
-            'UserPoolId': settings.auth_team_userpoolid,
+            'UserPoolId': settings.auth_elevator_userpoolid,
             'Filter': f'username = "{username}"',
             'AttributesToGet': ["email"],
         }
@@ -1174,6 +1092,7 @@ def get_eligibility(request: RequestItem, user_id: str) -> Optional[EligibilityC
     eligible = False
     approval_required = True
     auto_approval_on_call = False
+    allow_self_approval = False  # Default to disallow
     group_ids = [group.GroupId for group in list_idc_group_membership(user_id)]
 
     max_duration_error = True
@@ -1196,13 +1115,17 @@ def get_eligibility(request: RequestItem, user_id: str) -> Optional[EligibilityC
                             approval_required = False
                         if entitlement_item.autoApprovalOnCall:
                             auto_approval_on_call = True
+                        # If any matching policy allows self-approval, allow it
+                        # None means disallow (for backward compatibility)
+                        if entitlement_item.allowSelfApproval is True:
+                            allow_self_approval = True
 
     if max_duration_error:
         update_request_directly(UpdateRequestInput(id=request.id, status='error'))
         return None
 
     if eligible:
-        return EligibilityCheckResult(approval=approval_required, autoApprovalOnCall=auto_approval_on_call)
+        return EligibilityCheckResult(approval=approval_required, autoApprovalOnCall=auto_approval_on_call, allowSelfApproval=allow_self_approval)
     else:
         update_request_directly(UpdateRequestInput(id=request.id, status='error'))
         return None
@@ -1240,13 +1163,12 @@ def get_approvers(user_id):
         IdentityStoreId=identity_store_id,
         UserId=user_id
     )
-    approver_id = "idc_" + response['UserName']
     approver_email = None
     for email in (response.get('Emails') or []):
             if email:
                 approver_email = email['Value']
                 break
-    return {"approver_id": approver_id, "approver": approver_email}
+    return {"approver_id": approver_email, "approver": approver_email}
 
 
 def list_group_membership(group_id):
@@ -1275,7 +1197,7 @@ def get_approvers_details(account_id: str) -> ApproverDetails:
             for data in approvers_data:
                 if data["approver"] and data["approver"] not in approvers:
                     approvers.append(data["approver"])
-                    approver_ids.append(data["approver_id"].lower())
+                    approver_ids.append(data["approver_id"])
     return ApproverDetails(approvers=approvers, approver_ids=approver_ids)
 
 
@@ -1290,9 +1212,10 @@ def get_ps_duration(ps_arn):
     return response['PermissionSet']['SessionDuration']
 
 
-def update_request_details(request_id: str, username: str, account_id: str, role_id: str) -> None:
+def update_request_details(request_id: str, username: str, account_id: str, role_id: str, email: str = '') -> None:
     """Update request details"""
-    email = get_email(username)
+    if not email:
+        email = get_email(username)
     approver_details = get_approvers_details(account_id)
     approver_ids = approver_details.approver_ids
     approvers = approver_details.approvers
@@ -1371,9 +1294,9 @@ def ensure_request_details_complete(request: RequestItem) -> RequestItem:
     username = request_obj.username
     status = request_obj.status
 
-    # Fill in missing email if status is pending
-    if status == "pending" and not request_obj.email:
-        update_request_details(request_id, username, request_obj.accountId, request_obj.roleId)
+    # Fill in missing details (approvers, session_duration) if status is pending
+    if status == "pending" and (not request_obj.email or not request_obj.approvers):
+        update_request_details(request_id, username, request_obj.accountId, request_obj.roleId, email=request_obj.email or '')
         # Re-fetch to get updated email
         updated_response = requests_table.get_item(Key={'id': request_id})
         updated = updated_response.get('Item') or {}
@@ -1405,7 +1328,6 @@ def ensure_request_details_complete(request: RequestItem) -> RequestItem:
 # Map resources to DynamoDB tables for generic CRUD operations
 table_map = {
     'requests': requests_table,
-    'sessions': sessions_table,
     'approvers': approvers_table,
     'settings': settings_table,
     'eligibility': eligibility_table,
@@ -1471,7 +1393,7 @@ def create_request(body: CreateRequestInput) -> RequestItem:
     try:
         claims = app.current_event.request_context.authorizer.jwt_claim  # type: ignore[union-attr]
         data['email'] = claims.get("email", "")
-        data['username'] = claims.get("cognito:username") or claims.get("email", "")
+        data['username'] = claims.get("email", "")
         data['userId'] = claims.get("userId", "")
     except Exception as e:
         logger.warning("Could not extract JWT claims", extra={"error": str(e)})
@@ -1479,6 +1401,7 @@ def create_request(body: CreateRequestInput) -> RequestItem:
     # Set default status
     if not data.get('status'):
         data['status'] = 'pending'
+    data['sessionStatus'] = 'not-started'
 
     # Map 'duration' (frontend field, hours) to 'time' (model field)
     if not data.get('time') and data.get('duration'):
@@ -1496,8 +1419,8 @@ def create_request(body: CreateRequestInput) -> RequestItem:
         # Check if request needs enrichment (approvers, email, session_duration)
         if status == "pending" and (not request.email or not request.approvers):
             logger.info("Enriching new request", extra={"request_id": request_id})
-            # Enrich with email, approvers, session_duration
-            update_request_details(request_id, username, request.accountId, request.roleId)
+            # Enrich with approvers, session_duration (email already comes from JWT)
+            update_request_details(request_id, username, request.accountId, request.roleId, email=request.email)
 
             # Re-fetch enriched request
             enriched_response = requests_table.get_item(Key={'id': request_id})
@@ -1523,14 +1446,14 @@ def create_request(body: CreateRequestInput) -> RequestItem:
             # Use userId from JWT claims if available, otherwise look up from IDC
             user_id = request.userId
             if not user_id:
-                # Strip federated provider prefix (e.g. "IDC_user@example.com" -> "user@example.com")
-                clean_username = username.split("_", 1)[1] if '_' in username else username
+                # Look up user by email (IDC userName typically equals email)
+                lookup_name = request.email or username
                 try:
-                    user_id = get_user(clean_username)
+                    user_id = get_user(lookup_name)
                 except Exception as e:
-                    logger.error("Failed to get user ID", extra={"username": clean_username, "error": str(e)})
+                    logger.error("Failed to get user ID", extra={"username": lookup_name, "error": str(e)})
                     update_request_directly(UpdateRequestInput(id=request_id, status='error'))
-                    raise BadRequestError(f"Failed to get user ID for {clean_username}")
+                    raise BadRequestError(f"Failed to get user ID for {lookup_name}")
 
                 # Update request with userId
                 update_request_directly(UpdateRequestInput(id=request_id, userId=user_id))
@@ -1542,10 +1465,14 @@ def create_request(body: CreateRequestInput) -> RequestItem:
                 logger.error("Eligibility check failed", extra={"request_id": request_id})
                 raise BadRequestError("Request not eligible: check account, role, and duration permissions")
 
-            # Update approval_required based on eligibility
+            # Update approval_required and allowSelfApproval based on eligibility
             if eligibility_result.approval:
                 approval_required = eligibility_result.approval
-                update_request_directly(UpdateRequestInput(id=request_id, approvalRequired=approval_required))
+                update_request_directly(UpdateRequestInput(
+                    id=request_id,
+                    approvalRequired=approval_required,
+                    allowSelfApproval=eligibility_result.allowSelfApproval
+                ))
 
             # Auto-approve if user is on-call and policy allows it
             if approval_required and eligibility_result.autoApprovalOnCall and check_user_on_call(request.email):
@@ -1598,6 +1525,21 @@ def create_request(body: CreateRequestInput) -> RequestItem:
 def update_request(request_id: str, body: UpdateRequestInput) -> RequestItem:
     """Update an existing request and process synchronously"""
     data = body.model_dump(exclude_none=True)
+
+    # Set actor from JWT claims (never trust frontend for identity)
+    status = data.get('status')
+    try:
+        claims = app.current_event.request_context.authorizer.jwt_claim  # type: ignore[union-attr]
+        actor_email = claims.get("email", "")
+        actor_id = claims.get("sub", "")
+        if status in ('approved', 'rejected'):
+            data['approver'] = actor_email
+            data['approverId'] = actor_id
+        elif status == 'revoked':
+            data['revoker'] = actor_email
+            data['revokerId'] = actor_id
+    except Exception as e:
+        logger.warning("Could not extract actor from JWT", extra={"error": str(e)})
 
     # Prepend "Manually approved" to comment when approving
     if data.get('status') == 'approved':
@@ -1657,11 +1599,11 @@ def update_request(request_id: str, body: UpdateRequestInput) -> RequestItem:
 
         # Handle workflow based on status
         if status == "approved" and approval_required:
-            # Validate approver != requester (prevent self-approval)
-            if request.email == request.approver:
-                logger.error("Self-approval not allowed", extra={"request_id": request_id})
-                update_request_directly(UpdateRequestInput(id=request_id, status='error'))
-                raise BadRequestError("Self-approval not allowed")
+            # Validate approver != requester (prevent self-approval) if policy explicitly disallows it
+            # None means allow (for backward compatibility with old requests)
+            if request.allowSelfApproval == False and request.email == request.approver:
+                logger.warning("Self-approval not allowed by policy", extra={"request_id": request_id, "email": request.email})
+                raise BadRequestError("Self-approval is not allowed by policy. Another approver must approve this request.")
 
             # Check if startTime is in the future
             if request.startTime:
@@ -1991,15 +1933,16 @@ def list_eligibility() -> EligibilityListResponse:
     policies = []
     for item in items:
         policies.append(EligibilityResponse(
-            id=item.get('id', ''),
+            id=item['id'],
             type=item.get('type'),
             name=item.get('name'),
             accounts=item.get('accounts', []),
             ous=item.get('ous', []),
             permissions=item.get('permissions', []),
-            approvalRequired=item.get('approvalRequired', True),
-            duration=item.get('duration', '9'),
-            autoApprovalOnCall=item.get('autoApprovalOnCall', False)
+            approvalRequired=item['approvalRequired'],
+            duration=item['duration'],
+            autoApprovalOnCall=item['autoApprovalOnCall'],
+            allowSelfApproval=item['allowSelfApproval']
         ))
 
     return EligibilityListResponse(items=policies)
@@ -2015,15 +1958,16 @@ def get_eligibility_policy(policy_id: str) -> EligibilityResponse:
         raise NotFoundError(f"Eligibility policy '{policy_id}' not found")
 
     return EligibilityResponse(
-        id=item.get('id', ''),
+        id=item['id'],
         type=item.get('type'),
         name=item.get('name'),
         accounts=item.get('accounts', []),
         ous=item.get('ous', []),
         permissions=item.get('permissions', []),
-        approvalRequired=item.get('approvalRequired', True),
-        duration=item.get('duration', '9'),
-        autoApprovalOnCall=item.get('autoApprovalOnCall', False)
+        approvalRequired=item['approvalRequired'],
+        duration=item['duration'],
+        autoApprovalOnCall=item['autoApprovalOnCall'],
+        allowSelfApproval=item['allowSelfApproval']
     )
 
 
@@ -2037,12 +1981,13 @@ def create_eligibility_policy(body: CreateEligibilityInput) -> EligibilityRespon
         id=item['id'],
         type=item.get('type'),
         name=item.get('name'),
-        accounts=item.get('accounts', []),
-        ous=item.get('ous', []),
-        permissions=item.get('permissions', []),
-        approvalRequired=item.get('approvalRequired', True),
-        duration=item.get('duration', '9'),
-        autoApprovalOnCall=item.get('autoApprovalOnCall', False)
+        accounts=item['accounts'],
+        ous=item['ous'],
+        permissions=item['permissions'],
+        approvalRequired=item['approvalRequired'],
+        duration=item['duration'],
+        autoApprovalOnCall=item['autoApprovalOnCall'],
+        allowSelfApproval=item['allowSelfApproval']
     )
 
 
@@ -2073,15 +2018,16 @@ def update_eligibility_policy(policy_id: str, body: CreateEligibilityInput) -> E
 
     item = result.get('Attributes', {})
     return EligibilityResponse(
-        id=item.get('id', policy_id),
+        id=item['id'],
         type=item.get('type'),
         name=item.get('name'),
-        accounts=item.get('accounts', []),
-        ous=item.get('ous', []),
-        permissions=item.get('permissions', []),
-        approvalRequired=item.get('approvalRequired', True),
-        duration=item.get('duration', '9'),
-        autoApprovalOnCall=item.get('autoApprovalOnCall', False)
+        accounts=item['accounts'],
+        ous=item['ous'],
+        permissions=item['permissions'],
+        approvalRequired=item['approvalRequired'],
+        duration=item['duration'],
+        autoApprovalOnCall=item['autoApprovalOnCall'],
+        allowSelfApproval=item['allowSelfApproval']
     )
 
 
@@ -2135,36 +2081,10 @@ def list_logs(queryId: Optional[str] = None, query: Optional[str] = None) -> Clo
     else:
         return handle_get_logs(query or '')
 
-# Session endpoints
-@app.get("/sessions")
-def list_sessions(limit: int = 100, lastKey: Optional[str] = None) -> DynamoDBScanResponse:
-    """List all sessions"""
-    return handle_list_sessions(limit, lastKey)
-
-@app.get("/sessions/<session_id>")
-def get_session(session_id: str) -> SessionItem:
-    """Get a session by ID"""
-    return handle_get_session(session_id)
-
-@app.post("/sessions")
-def create_session(body: SessionItem) -> SessionItem:
-    """Create a new session"""
-    return handle_create_session(body)
-
-@app.put("/sessions/<session_id>")
-def update_session(session_id: str, body: UpdateSessionInput) -> SessionItem:
-    """Update a session"""
-    return handle_update_session(session_id, body.model_dump(exclude_none=True))
-
-@app.delete("/sessions/<session_id>")
-def delete_session(session_id: str) -> SuccessResponse:
-    """Delete a session"""
-    return handle_delete_session(session_id)
-
-@app.post("/sessions/<session_id>/logs")
-def start_session_logs(session_id: str) -> CloudTrailQueryResponse:
-    """Start CloudTrail Lake query for a session"""
-    return handle_start_session_logs(session_id)
+@app.post("/requests/<request_id>/logs")
+def start_request_logs(request_id: str) -> CloudTrailQueryResponse:
+    """Start CloudTrail Lake query for a request"""
+    return handle_start_request_logs(request_id)
 
 @app.get("/user-policy")
 def get_user_policy(userId: Optional[str] = None, groupIds: Optional[str] = None, username: Optional[str] = None) -> EntitlementResponse:
@@ -2395,7 +2315,7 @@ def revocation_handler(
     # Extract instance_arn from event_data if provided, otherwise will be fetched in task_revoke
     instance_arn = event_data.get('instanceARN')
     
-    result = task_revoke(request, instance_arn=instance_arn)
+    result = task_revoke(request, instance_arn=instance_arn, is_scheduled=True)
     return result.model_dump()
 
 

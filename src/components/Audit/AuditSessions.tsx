@@ -12,17 +12,13 @@ import {
   TextFilter,
   SpaceBetween,
   CollectionPreferences,
-  Modal,
-  ColumnLayout,
-  ExpandableSection,
   Select,
+  Link,
 } from "@cloudscape-design/components";
 import { useCollection } from "@cloudscape-design/collection-hooks";
-import { Divider } from "antd";
+import { useLocation } from "wouter";
 import { $api } from "../../api/client";
 import Status from "../Shared/Status";
-import "../../index.css";
-import Logs from "../Sessions/Logs";
 
 interface Preferences {
   pageSize?: number;
@@ -61,7 +57,7 @@ function convertAwsDateTime(awsDateTime: string) {
   return userFriendlyFormat;
 }
 
-const COLUMN_DEFINITIONS = [
+const getColumnDefinitions = (navigate: (to: string) => void) => [
   {
     id: "id",
     sortingField: "id",
@@ -73,7 +69,11 @@ const COLUMN_DEFINITIONS = [
     id: "email",
     sortingField: "email",
     header: "Requester",
-    cell: (item: SessionItem) => item.email,
+    cell: (item: SessionItem) => (
+      <Link onFollow={(e) => { e.preventDefault(); navigate(`/sessions/${item.id}`); }}>
+        {item.email}
+      </Link>
+    ),
     minWidth: 160,
   },
   {
@@ -186,6 +186,9 @@ interface AuditSessionsProps {
 }
 
 function AuditSessions(props: AuditSessionsProps) {
+  const [, navigate] = useLocation();
+  const COLUMN_DEFINITIONS = useMemo(() => getColumnDefinitions(navigate), [navigate]);
+
   // React Query hooks
   const requestsQuery = $api.useQuery("get", "/requests", undefined, {
     refetchInterval: 30000, // Poll every 30 seconds
@@ -223,8 +226,6 @@ function AuditSessions(props: AuditSessionsProps) {
   });
 
   const [selectedOption, setSelectedOption] = useState<{ label: string; value: string }>(defaultStatus);
-  const [visible, setVisible] = useState(false);
-  const [viewLogs, setViewLogs] = useState(false);
 
   // Helper functions
   function prepareSelectOptions(field: string, defaultOption: { label: string; value: string }) {
@@ -289,7 +290,12 @@ function AuditSessions(props: AuditSessionsProps) {
       ),
     },
     pagination: { pageSize: preferences.pageSize },
-    sorting: {},
+    sorting: {
+      defaultState: {
+        sortingColumn: { sortingField: "startTime" },
+        isDescending: true,
+      },
+    },
     selection: {},
   });
 
@@ -300,23 +306,13 @@ function AuditSessions(props: AuditSessionsProps) {
   }
 
   function handleSelect() {
-    setVisible(true);
-    setViewLogs(true);
+    if (selectedItems && selectedItems.length > 0) {
+      navigate(`/sessions/${(selectedItems[0] as SessionItem).id}`);
+    }
   }
 
-  const ValueWithLabel = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div>
-      <div className="headings">
-        <Box color="inherit" fontSize="body-m">
-          {label}
-        </Box>
-      </div>
-      <div>{children}</div>
-    </div>
-  );
-
   return (
-    <div className="container">
+    <div>
       <Table
         {...collectionProps}
         resizableColumns={true}
@@ -350,16 +346,16 @@ function AuditSessions(props: AuditSessionsProps) {
           </Header>
         }
         filter={
-          <div className="input-container">
+          <div style={{ display: 'flex', flexWrap: 'wrap', flexGrow: 10, marginRight: '2rem' }}>
             <TextFilter
               {...filterProps}
               filteringPlaceholder="Find session"
               countText={String(filteredItemsCount)}
-              className="input-filter"
+              style={{ flexGrow: 6, width: 'auto', maxWidth: 728, marginRight: '1rem' }}
             />
             <Select
               {...filterProps}
-              className="select-filter engine-filter"
+              style={{ maxWidth: 130, flexGrow: 2, width: 'auto', marginRight: '1rem' }}
               selectedAriaLabel="Selected"
               options={selectStatusOptions}
               selectedOption={selectedOption}
@@ -382,106 +378,6 @@ function AuditSessions(props: AuditSessionsProps) {
         items={items}
         selectionType="single"
       />
-      <div>
-        {selectedItems && selectedItems.length > 0 && (
-          <Modal
-            onDismiss={() => {
-              setVisible(false);
-              setViewLogs(false);
-            }}
-            visible={visible}
-            closeAriaLabel="Close modal"
-            size="large"
-            footer={
-              <Box float="right">
-                <SpaceBetween direction="horizontal" size="s">
-                  <Button
-                    variant="link"
-                    onClick={() => {
-                      setViewLogs(false);
-                      setVisible(false);
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </SpaceBetween>
-              </Box>
-            }
-            header="Session details"
-          >
-            <SpaceBetween size="s">
-              <ColumnLayout columns={3} variant="text-grid">
-                <SpaceBetween size="l">
-                  <ValueWithLabel label="Requester">
-                    {(selectedItems[0] as SessionItem).email}
-                  </ValueWithLabel>
-                  <ValueWithLabel label="Status">
-                    <Status status={(selectedItems[0] as SessionItem).status} />
-                  </ValueWithLabel>
-                  <ValueWithLabel label="Justification">
-                    {(selectedItems[0] as SessionItem).justification}
-                  </ValueWithLabel>
-                </SpaceBetween>
-                <SpaceBetween size="l">
-                  <ValueWithLabel label="Account">
-                    {`${(selectedItems[0] as SessionItem).accountName} (${(selectedItems[0] as SessionItem).accountId})`}
-                  </ValueWithLabel>
-                  <ValueWithLabel label="Role">
-                    {(selectedItems[0] as SessionItem).role}
-                  </ValueWithLabel>
-                  <ValueWithLabel label="TicketNo">
-                    {(selectedItems[0] as SessionItem).ticketNo}
-                  </ValueWithLabel>
-                </SpaceBetween>
-                <SpaceBetween size="l">
-                  <ValueWithLabel label="Start Time">
-                    {convertAwsDateTime((selectedItems[0] as SessionItem).startTime)}
-                  </ValueWithLabel>
-                  <ValueWithLabel label="End Time">
-                    {(selectedItems[0] as SessionItem).endTime ? convertAwsDateTime((selectedItems[0] as SessionItem).endTime!) : "-"}
-                  </ValueWithLabel>
-                </SpaceBetween>
-              </ColumnLayout>
-              <Divider style={{ marginBottom: "7px", marginTop: "7px" }} />
-              <ColumnLayout columns={3}>
-                <SpaceBetween size="m">
-                  <ValueWithLabel label="Approved by">
-                    {(selectedItems[0] as SessionItem).approver}
-                  </ValueWithLabel>
-                  <ValueWithLabel label="Comments">
-                    {(selectedItems[0] as SessionItem).comment}
-                  </ValueWithLabel>
-                </SpaceBetween>
-                <div>
-                  {(selectedItems[0] as SessionItem).status === "revoked" && (
-                    <SpaceBetween size="m">
-                      <ValueWithLabel
-                        label={
-                          (selectedItems[0] as SessionItem).revoker === props.user
-                            ? "Revoked by (requester)"
-                            : "Revoked by (approver)"
-                        }
-                      >
-                        {(selectedItems[0] as SessionItem).revoker}
-                      </ValueWithLabel>
-                      <ValueWithLabel label="Comments">
-                        {(selectedItems[0] as SessionItem).revokeComment}
-                      </ValueWithLabel>
-                    </SpaceBetween>
-                  )}
-                </div>
-              </ColumnLayout>
-              <ExpandableSection
-                variant="footer"
-                header="Session Logs"
-                className="expanded"
-              >
-                <div>{viewLogs && <Logs item={selectedItems[0] as SessionItem} />}</div>
-              </ExpandableSection>
-            </SpaceBetween>
-          </Modal>
-        )}
-      </div>
     </div>
   );
 }

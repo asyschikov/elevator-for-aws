@@ -6,7 +6,7 @@ import React, { useEffect, useState } from "react";
 import AppLayout from "@cloudscape-design/components/app-layout";
 import Navigation from "./Navigation";
 import ToolsDrawer from "./ToolsDrawer";
-import { BrowserRouter, Switch, Route } from "react-router-dom";
+import { Switch, Route } from "wouter";
 import Flashbar from "@cloudscape-design/components/flashbar";
 import Request from "../Requests/Request";
 import Approvals from "../Approvals/Approvals";
@@ -16,13 +16,13 @@ import View from "../Requests/View";
 import Review from "../Approvals/Review";
 import AuditApprovals from "../Audit/AuditApprovals";
 import AuditSessions from "../Audit/AuditSessions";
-import "../../index.css";
 import Landing from "./Landing";
 import Header from "./Header";
 import Eligible from "../Admin/Eligible";
 import Integrations from "../Admin/Integrations";
 import Active from "../Sessions/Active";
 import Audit from "../Sessions/Audit";
+import SessionDetail from "../Sessions/SessionDetail";
 import RequestDetail from "../Requests/RequestDetail";
 import ApprovalDetail from "../Approvals/ApprovalDetail";
 // Amplify is configured in index.tsx
@@ -53,18 +53,16 @@ function Nav(props) {
   return (
     <div>
       {User ? (
-        <BrowserRouter>
-          <div id="b">
-            <div id="h">
-              <Header
-                user={User}
-                setActiveHref={setActiveHref}
-                addNotification={setNotifications}
-              />
-            </div>
+        <>
+          <div id="h" style={{ position: 'sticky', top: 0, zIndex: 1002 }}>
+            <Header
+              user={User}
+              setActiveHref={setActiveHref}
+              addNotification={setNotifications}
+            />
           </div>
           <AppLayout
-            className="main"
+            headerSelector="#h"
             notifications={<Flashbar items={notifications} />}
             navigation={
               <Navigation
@@ -78,11 +76,9 @@ function Nav(props) {
             tools={<ToolsDrawer></ToolsDrawer>}
             content={
               <Switch>
-                <Route
-                  path="/"
-                  exact={true}
-                  render={() => <Landing setActiveHref={setActiveHref} />}
-                />
+                <Route path="/">
+                  <Landing setActiveHref={setActiveHref} />
+                </Route>
                 <Route path="/requests/request">
                   <Request
                     addNotification={setNotifications}
@@ -144,6 +140,13 @@ function Nav(props) {
                     setActiveHref={setActiveHref}
                     user={User}
                     group={group}
+                  />
+                </Route>
+                <Route path="/sessions/:id">
+                  <SessionDetail
+                    addNotification={setNotifications}
+                    setActiveHref={setActiveHref}
+                    user={User}
                   />
                 </Route>
                 {group && group.includes("Admin") ? (
@@ -209,7 +212,7 @@ function Nav(props) {
               </Switch>
             }
           />
-        </BrowserRouter>
+        </>
       ) : (
         <> loading </>
       )}

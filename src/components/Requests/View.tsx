@@ -18,8 +18,7 @@ import {
 import { useCollection } from "@cloudscape-design/collection-hooks";
 import { $api } from "../../api/client";
 import Status from "../Shared/Status";
-import "../../index.css";
-import { useHistory } from "react-router-dom";
+import { useLocation } from "wouter";
 
 interface Preferences {
   pageSize?: number;
@@ -53,7 +52,7 @@ function convertAwsDateTime(awsDateTime: string) {
   return userFriendlyFormat;
 }
 
-const COLUMN_DEFINITIONS = [
+const getColumnDefinitions = (navigate: (to: string) => void) => [
   {
     id: "id",
     sortingField: "id",
@@ -66,7 +65,9 @@ const COLUMN_DEFINITIONS = [
     sortingField: "email",
     header: "Requester",
     cell: (item: RequestItem) => (
-      <Link href={`/requests/view/${item.id}`}>{item.email}</Link>
+      <Link onFollow={(e) => { e.preventDefault(); navigate(`/requests/view/${item.id}`); }}>
+        {item.email}
+      </Link>
     ),
     minWidth: 160,
   },
@@ -106,18 +107,11 @@ const COLUMN_DEFINITIONS = [
     maxWidth: 200,
   },
   {
-    id: "ticketNo",
-    sortingField: "ticketNo",
-    header: "TicketNo",
-    cell: (item: RequestItem) => item.ticketNo || "-",
-    minWidth: 10,
-  },
-  {
     id: "status",
     sortingField: "status",
     header: "Status",
     cell: (item: RequestItem) => <Status status={item.status} />,
-    minWidth: 10,
+    minWidth: 120,
   },
 ];
 
@@ -153,7 +147,6 @@ const MyCollectionPreferences = ({ preferences, setPreferences }: { preferences:
               { id: "duration", label: "Duration" },
               { id: "startTime", label: "StartTime" },
               { id: "justification", label: "Justification" },
-              { id: "ticketNo", label: "TicketNo" },
               { id: "status", label: "Status" },
             ],
           },
@@ -188,7 +181,8 @@ interface ViewProps {
 }
 
 function View(props: ViewProps) {
-  const history = useHistory();
+  const [, navigate] = useLocation();
+  const COLUMN_DEFINITIONS = useMemo(() => getColumnDefinitions(navigate), [navigate]);
 
   // React Query hooks
   const requestsQuery = $api.useQuery("get", "/requests", undefined, {
@@ -228,7 +222,6 @@ function View(props: ViewProps) {
       "duration",
       "startTime",
       "justification",
-      "ticketNo",
       "status",
     ],
   });
@@ -302,7 +295,12 @@ function View(props: ViewProps) {
       ),
     },
     pagination: { pageSize: preferences.pageSize },
-    sorting: {},
+    sorting: {
+      defaultState: {
+        sortingColumn: { sortingField: "startTime" },
+        isDescending: true,
+      },
+    },
     selection: {},
   });
 
@@ -312,12 +310,12 @@ function View(props: ViewProps) {
   }
 
   function handleCreate() {
-    history.push("/requests/request");
+    navigate("/requests/request");
     props.setActiveHref("/requests/request");
   }
 
   return (
-    <div className="container">
+    <div>
       <Table
         {...collectionProps}
         resizableColumns={true}
@@ -344,16 +342,16 @@ function View(props: ViewProps) {
           </Header>
         }
         filter={
-          <div className="input-container">
+          <div style={{ display: 'flex', flexWrap: 'wrap', flexGrow: 10, marginRight: '2rem' }}>
             <TextFilter
               {...filterProps}
               filteringPlaceholder="Find request"
               countText={String(filteredItemsCount)}
-              className="input-filter"
+              style={{ flexGrow: 6, width: 'auto', maxWidth: 728, marginRight: '1rem' }}
             />
             <Select
               {...filterProps}
-              className="select-filter engine-filter"
+              style={{ maxWidth: 130, flexGrow: 2, width: 'auto', marginRight: '1rem' }}
               selectedAriaLabel="Selected"
               options={selectStatusOptions}
               selectedOption={selectedOption}
@@ -374,6 +372,7 @@ function View(props: ViewProps) {
           />
         }
         items={items}
+        selectionType="single"
       />
     </div>
   );

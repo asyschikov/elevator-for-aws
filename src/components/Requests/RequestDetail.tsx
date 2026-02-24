@@ -7,10 +7,9 @@ import {
   Container,
   Modal,
 } from "@cloudscape-design/components";
-import { useParams, useHistory } from "react-router-dom";
+import { useParams, useLocation } from "wouter";
 import { $api } from "../../api/client";
 import Details from "../Shared/Details";
-import "../../index.css";
 
 interface RequestDetailProps {
   addNotification: (notifications: any[]) => void;
@@ -20,7 +19,7 @@ interface RequestDetailProps {
 
 function RequestDetail(props: RequestDetailProps) {
   const { id } = useParams<{ id: string }>();
-  const history = useHistory();
+  const [, navigate] = useLocation();
 
   const requestQuery = $api.useQuery("get", "/requests/{request_id}", {
     params: { path: { request_id: id } },
@@ -81,13 +80,13 @@ function RequestDetail(props: RequestDetailProps) {
   }
 
   return (
-    <div className="container">
+    <div>
       <Container
         header={
           <Header
             actions={
               <SpaceBetween size="s" direction="horizontal">
-                <Button onClick={() => history.push("/requests/view")}>
+                <Button onClick={() => navigate("/requests/view")}>
                   Back to requests
                 </Button>
                 {item.status === "pending" && (

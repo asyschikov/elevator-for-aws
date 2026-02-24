@@ -17,8 +17,8 @@
     "react": "^18.0.0",
     "react-csv": "^2.2.2",
     "react-dom": "^18.0.0",
-    "react-router-dom": "^5.3.4",
-    "sass": "^1.45.1"
+    "sass": "^1.45.1",
+    "wouter": "^3.9.0"
   },
   "scripts": {
     "dev": "vite",
@@ -49,7 +49,6 @@
     "@types/react": "^19.2.7",
     "@types/react-csv": "^1.1.10",
     "@types/react-dom": "^19.2.3",
-    "@types/react-router-dom": "^5.3.3",
     "@vitejs/plugin-react": "^4.0.0",
     "openapi-typescript": "^7.10.1",
     "typescript": "^5.0.0",

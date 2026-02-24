@@ -17,18 +17,20 @@ class RequestItem(BaseModel):
     accountName: str
     roleId: str
     role: str
-    userId: str
+    userId: Optional[str] = None  # Optional for backward compatibility with old records
     status: Literal[
         "pending", "approved", "rejected", "scheduled",
-        "in_progress", "granted", "revoked", "cancelled", "expired", "error"
+        "in_progress", "granted", "revoked", "cancelled", "expired", "error", "ended"
     ]
-    time: str  # Duration in hours
+    sessionStatus: Optional[Literal["not-started", "in-progress", "finished"]] = None
+    time: Optional[str] = None  # Duration in hours (optional for old records)
     duration: Optional[str] = None  # Duration in seconds
     startTime: Optional[str] = None
     endTime: Optional[str] = None
-    justification: str
-    ticketNo: str
+    justification: Optional[str] = None  # Optional for backward compatibility
+    ticketNo: Optional[str] = None  # Optional for backward compatibility
     approvalRequired: bool = True
+    allowSelfApproval: Optional[bool] = None  # Optional for backward compatibility with old records
     approvers: Optional[List[str]] = None
     approver_ids: Optional[List[str]] = None
     approver: Optional[str] = None
@@ -37,24 +39,7 @@ class RequestItem(BaseModel):
     revokerId: Optional[str] = None
     session_duration: Optional[str] = None
     error: Optional[str] = None
-
-
-class SessionItem(BaseModel):
-    """DynamoDB session item model"""
-    model_config = ConfigDict(extra='allow')
-
-    id: str
-    requestId: Optional[str] = None
-    userId: Optional[str] = None
-    username: Optional[str] = None
-    accountId: str
-    role: Optional[str] = None
-    roleId: Optional[str] = None
-    startTime: str
-    endTime: Optional[str] = None
-    approver_ids: Optional[List[str]] = None
     queryId: Optional[str] = None  # CloudTrail Lake query ID
-    expireAt: Optional[int] = None  # TTL timestamp
 
 
 class ApproverItem(BaseModel):
@@ -114,7 +99,8 @@ class EligibilityItem(BaseModel):
     permissions: List[EligibilityPolicyPermission]
     approvalRequired: bool
     duration: str  # Max duration in hours
-    autoApprovalOnCall: bool = False  # Auto-approve if user is on-call
+    autoApprovalOnCall: bool  # Auto-approve if user is on-call (required)
+    allowSelfApproval: bool  # Allow user to approve their own requests (required)
 
 
 class IntegrationItem(BaseModel):

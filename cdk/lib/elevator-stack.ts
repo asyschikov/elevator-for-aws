@@ -119,17 +119,6 @@ export class ElevatorStack extends cdk.Stack {
       sortKey: { name: 'status', type: dynamodb.AttributeType.STRING },
     });
 
-    const sessionsTable = new dynamodb.Table(this, 'SessionsTable', {
-      tableName: `elevator-sessions-${envName}`,
-      partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      timeToLiveAttribute: 'expireAt',
-      pointInTimeRecoverySpecification: {
-        pointInTimeRecoveryEnabled: true,
-      },
-      removalPolicy: cdk.RemovalPolicy.RETAIN,
-    });
-
     const approversTable = new dynamodb.Table(this, 'ApproversTable', {
       tableName: `elevator-approvers-${envName}`,
       partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
@@ -517,7 +506,6 @@ def handler(event, context):
     const grantCommonPermissions = (func: lambda.Function) => {
       // Grant DynamoDB permissions
       requestsTable.grantReadWriteData(func);
-      sessionsTable.grantReadWriteData(func);
       approversTable.grantReadWriteData(func);
       settingsTable.grantReadWriteData(func);
       eligibilityTable.grantReadWriteData(func);
@@ -608,7 +596,6 @@ def handler(event, context):
           ELEVATOR_ADMIN_GROUP: props.elevatorAdminGroup,
           ELEVATOR_AUDITOR_GROUP: props.elevatorAuditorGroup,
           REQUESTS_TABLE: requestsTable.tableName,
-          SESSIONS_TABLE: sessionsTable.tableName,
           APPROVERS_TABLE: approversTable.tableName,
           SETTINGS_TABLE: settingsTable.tableName,
           ELIGIBILITY_TABLE: eligibilityTable.tableName,
@@ -723,21 +710,44 @@ def handler(event, context):
     });
 
     // =============================================================================
-    // EventBridge for Scheduled Tasks (replacing Step Functions)
+    // EventBridge Scheduler for Scheduled Tasks
     // =============================================================================
 
-    // Grant EventBridge permissions to backend function for scheduling tasks
+    // Create IAM role for EventBridge Scheduler to invoke the revocation Lambda
+    const schedulerRole = new iam.Role(this, 'SchedulerRole', {
+      assumedBy: new iam.ServicePrincipal('scheduler.amazonaws.com'),
+      description: 'Role for EventBridge Scheduler to invoke revocation Lambda',
+    });
+    revocationFunction.grantInvoke(schedulerRole);
+
+    // Grant EventBridge Scheduler permissions to backend function
     backendFunction.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['events:PutRule', 'events:PutTargets', 'events:DeleteRule'],
+        actions: ['scheduler:CreateSchedule', 'scheduler:DeleteSchedule', 'scheduler:GetSchedule'],
         resources: ['*'],
       })
     );
 
-    // Grant EventBridge permissions to revocation function for scheduling revoke tasks
+    // Grant PassRole permission for the scheduler role
+    backendFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['iam:PassRole'],
+        resources: [schedulerRole.roleArn],
+        conditions: {
+          StringEquals: {
+            'iam:PassedToService': 'scheduler.amazonaws.com',
+          },
+        },
+      })
+    );
+
+    // Add scheduler role ARN to backend function environment
+    backendFunction.addEnvironment('SCHEDULER_ROLE_ARN', schedulerRole.roleArn);
+
+    // Grant EventBridge Scheduler permissions to revocation function (for cleanup)
     revocationFunction.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['events:PutRule', 'events:PutTargets', 'events:DeleteRule'],
+        actions: ['scheduler:DeleteSchedule', 'scheduler:GetSchedule'],
         resources: ['*'],
       })
     );

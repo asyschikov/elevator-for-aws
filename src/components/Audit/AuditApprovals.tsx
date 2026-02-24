@@ -12,14 +12,13 @@ import {
   TextFilter,
   SpaceBetween,
   CollectionPreferences,
-  Modal,
   Select,
+  Link,
 } from "@cloudscape-design/components";
 import { useCollection } from "@cloudscape-design/collection-hooks";
+import { useLocation } from "wouter";
 import { $api } from "../../api/client";
 import Status from "../Shared/Status";
-import Details from "../Shared/Details";
-import "../../index.css";
 import { CSVLink } from "react-csv";
 
 interface Preferences {
@@ -65,7 +64,9 @@ const COLUMN_DEFINITIONS = [
     id: "email",
     sortingField: "email",
     header: "Requester",
-    cell: (item: RequestItem) => item.email,
+    cell: (item: RequestItem) => (
+      <Link href={`/requests/view/${item.id}`}>{item.email}</Link>
+    ),
     minWidth: 160,
   },
   {
@@ -186,6 +187,8 @@ interface AuditApprovalsProps {
 }
 
 function AuditApprovals(props: AuditApprovalsProps) {
+  const [, navigate] = useLocation();
+
   // React Query hooks
   const requestsQuery = $api.useQuery("get", "/requests");
 
@@ -226,8 +229,6 @@ function AuditApprovals(props: AuditApprovalsProps) {
   });
 
   const [selectedOption, setSelectedOption] = useState<{ label: string; value: string }>(defaultStatus);
-  const [visible, setVisible] = useState(false);
-  const [expand, setExpand] = useState(false);
   const csvLink = useRef<any>(null);
 
   // Helper functions
@@ -293,7 +294,12 @@ function AuditApprovals(props: AuditApprovalsProps) {
       ),
     },
     pagination: { pageSize: preferences.pageSize },
-    sorting: {},
+    sorting: {
+      defaultState: {
+        sortingColumn: { sortingField: "startTime" },
+        isDescending: true,
+      },
+    },
     selection: {},
   });
 
@@ -305,8 +311,9 @@ function AuditApprovals(props: AuditApprovalsProps) {
   }
 
   function handleSelect() {
-    setVisible(true);
-    setExpand(false);
+    if (selectedItems && selectedItems.length > 0) {
+      navigate(`/requests/view/${(selectedItems[0] as RequestItem).id}`);
+    }
   }
 
   function handleDownload() {
@@ -314,7 +321,7 @@ function AuditApprovals(props: AuditApprovalsProps) {
   }
 
   return (
-    <div className="container">
+    <div>
       <Table
         {...collectionProps}
         resizableColumns={true}
@@ -365,16 +372,16 @@ function AuditApprovals(props: AuditApprovalsProps) {
           </Header>
         }
         filter={
-          <div className="input-container">
+          <div style={{ display: 'flex', flexWrap: 'wrap', flexGrow: 10, marginRight: '2rem' }}>
             <TextFilter
               {...filterProps}
               filteringPlaceholder="Find request"
               countText={String(filteredItemsCount)}
-              className="input-filter"
+              style={{ flexGrow: 6, width: 'auto', maxWidth: 728, marginRight: '1rem' }}
             />
             <Select
               {...filterProps}
-              className="select-filter engine-filter"
+              style={{ maxWidth: 130, flexGrow: 2, width: 'auto', marginRight: '1rem' }}
               selectedAriaLabel="Selected"
               options={selectStatusOptions}
               selectedOption={selectedOption}
@@ -397,31 +404,6 @@ function AuditApprovals(props: AuditApprovalsProps) {
         items={items}
         selectionType="single"
       />
-      <div>
-        {selectedItems && selectedItems.length > 0 && (
-          <Modal
-            onDismiss={() => {
-              setVisible(false);
-              setExpand(true);
-            }}
-            visible={visible}
-            closeAriaLabel="Close modal"
-            size="large"
-            footer={
-              <Box float="right">
-                <SpaceBetween direction="horizontal" size="s">
-                  <Button variant="link" onClick={() => setVisible(false)}>
-                    Cancel
-                  </Button>
-                </SpaceBetween>
-              </Box>
-            }
-            header="Request details"
-          >
-            <Details item={selectedItems[0] as RequestItem} status={expand} />
-          </Modal>
-        )}
-      </div>
     </div>
   );
 }

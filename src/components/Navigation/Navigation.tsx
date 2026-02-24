@@ -5,10 +5,10 @@
 import * as React from "react";
 import SideNavigation, { SideNavigationProps } from "@cloudscape-design/components/side-navigation";
 import Icon from "@cloudscape-design/components/icon";
-import { useHistory } from "react-router-dom";
+import { useLocation } from "wouter";
 
 function Navigation(props) {
-  const history = useHistory();
+  const [, navigate] = useLocation();
 
   const navItems: SideNavigationProps.Item[] = [
     {
@@ -81,7 +81,7 @@ function Navigation(props) {
         if (!event.detail.external) {
           event.preventDefault();
           props.setActiveHref(event.detail.href);
-          history.push(event.detail.href);
+          navigate(event.detail.href);
         }
       }}
     />

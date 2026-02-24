@@ -15,7 +15,6 @@
 import ExpandableSection from '@cloudscape-design/components/expandable-section';
 import Checkbox from '@cloudscape-design/components/checkbox';
 import Box from '@cloudscape-design/components/box';
-import "../../index.css";
 
 const Hierarchy = ({ options, resource, onSelect, handleToggle, action = null, allItems = [] }) => {
   return (

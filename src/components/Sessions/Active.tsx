@@ -18,14 +18,13 @@ import {
   FormField,
   ColumnLayout,
   ExpandableSection,
+  Link,
 } from "@cloudscape-design/components";
 import { useCollection } from "@cloudscape-design/collection-hooks";
-import { useHistory } from "react-router-dom";
+import { useLocation } from "wouter";
 import { $api } from "../../api/client";
 import Status from "../Shared/Status";
 import Details from "../Shared/Details";
-import "../../index.css";
-import { Divider } from "antd";
 import Logs from "../Sessions/Logs";
 import Timer from "../Sessions/Timer";
 
@@ -65,7 +64,7 @@ function convertAwsDateTime(awsDateTime: string) {
   return userFriendlyFormat;
 }
 
-const COLUMN_DEFINITIONS = [
+const getColumnDefinitions = (navigate: (to: string) => void) => [
   {
     id: "id",
     sortingField: "id",
@@ -77,7 +76,11 @@ const COLUMN_DEFINITIONS = [
     id: "email",
     sortingField: "email",
     header: "Requester",
-    cell: (item: SessionItem) => item.email,
+    cell: (item: SessionItem) => (
+      <Link onFollow={(e) => { e.preventDefault(); navigate(`/sessions/${item.id}`); }}>
+        {item.email}
+      </Link>
+    ),
     minWidth: 160,
   },
   {
@@ -198,7 +201,8 @@ interface ActiveProps {
 }
 
 function Active(props: ActiveProps) {
-  const history = useHistory();
+  const [, navigate] = useLocation();
+  const COLUMN_DEFINITIONS = useMemo(() => getColumnDefinitions(navigate), [navigate]);
 
   // React Query hooks
   const requestsQuery = $api.useQuery("get", "/requests", undefined, {
@@ -234,7 +238,7 @@ function Active(props: ActiveProps) {
     // Filter for scheduled or in progress sessions where user is requester or approver
     return items
       .filter((item) =>
-        (item.status === "scheduled" || item.status === "in progress") &&
+        (item.status === "scheduled" || item.status === "in progress" || item.status === "granted") &&
         (item.email === props.user || item.approvers?.includes(props.user))
       )
       .sort((a, b) => ((a.updatedAt ?? "") < (b.updatedAt ?? "") ? 1 : -1));
@@ -333,7 +337,12 @@ function Active(props: ActiveProps) {
       ),
     },
     pagination: { pageSize: preferences.pageSize },
-    sorting: {},
+    sorting: {
+      defaultState: {
+        sortingColumn: { sortingField: "startTime" },
+        isDescending: true,
+      },
+    },
     selection: {},
   });
 
@@ -351,7 +360,7 @@ function Active(props: ActiveProps) {
 
   const ValueWithLabel = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <div>
-      <div className="headings">
+      <div>
         <Box color="inherit" fontSize="body-m">
           {label}
         </Box>
@@ -361,7 +370,7 @@ function Active(props: ActiveProps) {
   );
 
   function handleCreate() {
-    history.push("/requests/request");
+    navigate("/requests/request");
     props.setActiveHref("/requests/request");
   }
 
@@ -388,7 +397,7 @@ function Active(props: ActiveProps) {
   }
 
   return (
-    <div className="container">
+    <div>
       <Table
         {...collectionProps}
         resizableColumns={true}
@@ -429,16 +438,16 @@ function Active(props: ActiveProps) {
           </Header>
         }
         filter={
-          <div className="input-container">
+          <div style={{ display: 'flex', flexWrap: 'wrap', flexGrow: 10, marginRight: '2rem' }}>
             <TextFilter
               {...filterProps}
               filteringPlaceholder="Find elevated access"
               countText={String(filteredItemsCount)}
-              className="input-filter"
+              style={{ flexGrow: 6, width: 'auto', maxWidth: 728, marginRight: '1rem' }}
             />
             <Select
               {...filterProps}
-              className="select-filter engine-filter"
+              style={{ maxWidth: 130, flexGrow: 2, width: 'auto', marginRight: '1rem' }}
               selectedAriaLabel="Selected"
               options={selectStatusOptions}
               selectedOption={selectedOption}
@@ -534,9 +543,7 @@ function Active(props: ActiveProps) {
               <div>
                 {(selectedItems[0] as SessionItem).approver && (
                   <div>
-                    <Divider
-                      style={{ marginBottom: "10px", marginTop: "10px" }}
-                    />
+                    <hr style={{ marginBottom: "10px", marginTop: "10px", border: "none", borderTop: "1px solid #e9ebed" }} />
                     <ColumnLayout columns={3}>
                       <SpaceBetween size="m">
                         <ValueWithLabel label="Approved by">
@@ -550,12 +557,11 @@ function Active(props: ActiveProps) {
                   </div>
                 )}
               </div>
-              {(selectedItems[0] as SessionItem).status === "in progress" && (
+              {((selectedItems[0] as any).sessionStatus === "in-progress" || (selectedItems[0] as SessionItem).status === "granted") && (
                 <div>
                   <ExpandableSection
                     variant="footer"
                     header="Session activity logs"
-                    className="expanded"
                   >
                     <div>{viewLogs && <Logs item={selectedItems[0] as SessionItem} />}</div>
                   </ExpandableSection>
@@ -601,7 +607,7 @@ function Active(props: ActiveProps) {
           >
             <SpaceBetween size="m">
               <Details item={selectedItems[0] as SessionItem} status={expand} />
-              <Divider style={{ marginBottom: "10px", marginTop: "10px" }} />
+              <hr style={{ marginBottom: "10px", marginTop: "10px", border: "none", borderTop: "1px solid #e9ebed" }} />
               <FormField
                 label="Revoke Comments"
                 stretch

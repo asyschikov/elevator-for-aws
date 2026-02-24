@@ -9,10 +9,9 @@ import {
   Textarea,
   FormField,
 } from "@cloudscape-design/components";
-import { useParams, useHistory } from "react-router-dom";
+import { useParams, useLocation } from "wouter";
 import { $api } from "../../api/client";
 import Status from "../Shared/Status";
-import "../../index.css";
 
 const ValueWithLabel = ({
   label,
@@ -22,7 +21,7 @@ const ValueWithLabel = ({
   children: React.ReactNode;
 }) => (
   <div>
-    <div className="headings">
+    <div>
       <Box color="inherit" fontSize="body-m">
         {label}
       </Box>
@@ -39,7 +38,7 @@ interface ApprovalDetailProps {
 
 function ApprovalDetail(props: ApprovalDetailProps) {
   const { id } = useParams<{ id: string }>();
-  const history = useHistory();
+  const [, navigate] = useLocation();
 
   const requestQuery = $api.useQuery("get", "/requests/{request_id}", {
     params: { path: { request_id: id } },
@@ -111,13 +110,13 @@ function ApprovalDetail(props: ApprovalDetailProps) {
   const isPending = item.status === "pending";
 
   return (
-    <div className="container">
+    <div>
       <Container
         header={
           <Header
             actions={
               <SpaceBetween size="s" direction="horizontal">
-                <Button onClick={() => history.push("/approvals/approve")}>
+                <Button onClick={() => navigate("/approvals/approve")}>
                   Back to approvals
                 </Button>
                 {isPending && !action && (

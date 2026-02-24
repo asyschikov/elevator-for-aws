@@ -11,11 +11,10 @@ import Header from "@cloudscape-design/components/header";
 import SpaceBetween from "@cloudscape-design/components/space-between";
 import Button from "@cloudscape-design/components/button";
 import Textarea from "@cloudscape-design/components/textarea";
-import moment from "moment";
-import { DatePicker } from "antd";
-import "../../index.css";
+import DatePicker from "@cloudscape-design/components/date-picker";
+import TimeInput from "@cloudscape-design/components/time-input";
 import React, { useState, useMemo } from "react";
-import { useHistory } from "react-router-dom";
+import { useLocation } from "wouter";
 import {
   useSettings,
   usePublishPolicy,
@@ -38,7 +37,7 @@ interface PolicyItem {
 }
 
 function Request(props: RequestProps) {
-  const history = useHistory();
+  const [, navigate] = useLocation();
 
   // Form state
   const [duration, setDuration] = useState("");
@@ -49,7 +48,9 @@ function Request(props: RequestProps) {
   const [roleError, setRoleError] = useState("");
   const [account, setAccount] = useState<SelectProps.Option | null>(null);
   const [accountError, setAccountError] = useState("");
-  const [time, setTime] = useState<string | Date>(moment().format());
+  const now = new Date();
+  const [date, setDate] = useState(now.toISOString().split("T")[0]);
+  const [time, setTime] = useState(now.toTimeString().slice(0, 5));
   const [timeError, setTimeError] = useState("");
   const [ticketNo, setTicketNo] = useState("");
   const [ticketError, setTicketError] = useState("");
@@ -157,7 +158,7 @@ function Request(props: RequestProps) {
       hasError = true;
     }
 
-    if (!time) {
+    if (!date) {
       setTimeError("Select start date");
       hasError = true;
     }
@@ -200,7 +201,7 @@ function Request(props: RequestProps) {
           role: role!.label,
           roleId: role!.value,
           duration: duration,
-          startTime: typeof time === 'string' ? time : time.toISOString(),
+          startTime: new Date(`${date}T${time || "00:00"}`).toISOString(),
           justification: justification,
           ticketNo: ticketNo,
         },
@@ -215,7 +216,7 @@ function Request(props: RequestProps) {
               onDismiss: () => props.addNotification([]),
             },
           ]);
-          history.push("/requests/view");
+          navigate("/requests/view");
           props.setActiveHref("/requests/view");
         },
         onError: () => {
@@ -233,7 +234,7 @@ function Request(props: RequestProps) {
   }
 
   function handleCancel() {
-    history.push("/");
+    navigate("/");
     props.setActiveHref("/");
     props.addNotification([]);
   }
@@ -242,7 +243,7 @@ function Request(props: RequestProps) {
   const permissionStatus = policyLoading ? "loading" : "finished";
 
   return (
-    <div className="container">
+    <div>
       <Form
         actions={
           <SpaceBetween direction="horizontal" size="xs">
@@ -331,22 +332,30 @@ function Request(props: RequestProps) {
             </FormField>
 
             <FormField
-              label="Start time"
+              label="Start date"
               stretch
-              description="Start date and time for elevated access"
+              description="Start date for elevated access"
               errorText={timeError}
             >
-              <DatePicker
-                showTime
-                format="YYYY-MM-DD HH:mm"
-                defaultValue={moment()}
-                onChange={(event: any) => {
-                  setTimeError("");
-                  if (event) {
-                    setTime(event._d);
-                  }
-                }}
-              />
+              <SpaceBetween direction="horizontal" size="xs">
+                <DatePicker
+                  value={date}
+                  onChange={({ detail }) => {
+                    setTimeError("");
+                    setDate(detail.value);
+                  }}
+                  placeholder="YYYY/MM/DD"
+                />
+                <TimeInput
+                  value={time}
+                  format="hh:mm"
+                  onChange={({ detail }) => {
+                    setTimeError("");
+                    setTime(detail.value);
+                  }}
+                  placeholder="HH:mm"
+                />
+              </SpaceBetween>
             </FormField>
 
             <FormField

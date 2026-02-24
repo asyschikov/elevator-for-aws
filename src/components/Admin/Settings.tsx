@@ -20,8 +20,6 @@ import {
   Spinner,
 } from "@cloudscape-design/components";
 import StatusIndicator from "@cloudscape-design/components/status-indicator";
-import { Divider } from "antd";
-import "../../index.css";
 import { $api } from "../../api/client";
 import type { components } from "../../api/schema.d";
 
@@ -264,7 +262,7 @@ function Settings(props: SettingsProps) {
   };
 
   return (
-    <div className="container">
+    <div>
       <ContentLayout>
         <Container
           header={
@@ -288,7 +286,7 @@ function Settings(props: SettingsProps) {
                 <Box variant="small">
                   Elevated access request settings
                 </Box>
-                <Divider style={{ marginBottom: "7px", marginTop: "7px" }} />
+                <hr style={{ marginBottom: "7px", marginTop: "7px", border: "none", borderTop: "1px solid #e9ebed" }} />
               </div>
               <div>
                 <Box variant="awsui-key-label">Approval workflow</Box>
@@ -364,7 +362,7 @@ function Settings(props: SettingsProps) {
               <div>
                 <Box variant="h3">Group settings</Box>
                 <Box variant="small">Elevator admin and auditor group settings</Box>
-                <Divider style={{ marginBottom: "7px", marginTop: "7px" }} />
+                <hr style={{ marginBottom: "7px", marginTop: "7px", border: "none", borderTop: "1px solid #e9ebed" }} />
               </div>
               <div>
                 <Box variant="awsui-key-label">Elevator admin group</Box>
@@ -395,7 +393,7 @@ function Settings(props: SettingsProps) {
                 <Box variant="small">
                   Notification settings for request and approval events
                 </Box>
-                <Divider style={{ marginBottom: "7px", marginTop: "7px" }} />
+                <hr style={{ marginBottom: "7px", marginTop: "7px", border: "none", borderTop: "1px solid #e9ebed" }} />
               </div>
               <div>
                 <Box variant="awsui-key-label">Email notifications</Box>
@@ -530,7 +528,7 @@ function Settings(props: SettingsProps) {
               <div>
                 <Box variant="h3">Group settings</Box>
                 <Box variant="small">Elevator admin and auditor group settings</Box>
-                <Divider style={{ marginBottom: "1px", marginTop: "7px" }} />
+                <hr style={{ marginBottom: "1px", marginTop: "7px", border: "none", borderTop: "1px solid #e9ebed" }} />
               </div>
               <FormField
                 label="Elevator admin Group"
@@ -581,7 +579,7 @@ function Settings(props: SettingsProps) {
               <div>
                 <Box variant="h3">Request settings</Box>
                 <Box variant="small">Controls access request requirements</Box>
-                <Divider style={{ marginBottom: "1px", marginTop: "7px" }} />
+                <hr style={{ marginBottom: "1px", marginTop: "7px", border: "none", borderTop: "1px solid #e9ebed" }} />
               </div>
               <div>
                 <FormField
@@ -660,7 +658,7 @@ function Settings(props: SettingsProps) {
                 <Box variant="small">
                   Notification settings for request and approval events
                 </Box>
-                <Divider style={{ marginBottom: "1px", marginTop: "7px" }} />
+                <hr style={{ marginBottom: "1px", marginTop: "7px", border: "none", borderTop: "1px solid #e9ebed" }} />
               </div>
               <FormField
                 label="Email notifications"

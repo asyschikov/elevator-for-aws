@@ -1,6 +1,6 @@
 import React from "react";
 import Box from "@cloudscape-design/components/box";
-import { useHistory } from "react-router-dom";
+import { useLocation } from "wouter";
 import Button from "@cloudscape-design/components/button";
 import Container from "@cloudscape-design/components/container";
 import Grid from "@cloudscape-design/components/grid";
@@ -12,7 +12,7 @@ import { useQuery } from "../../api/client";
 import "../../media/landing-page.css";
 
 function Landing(props) {
-  const history = useHistory();
+  const [, navigate] = useLocation();
 
   const { data: onCallData, isLoading: onCallLoading, isError: onCallError } = useQuery(
     "get",
@@ -39,7 +39,7 @@ function Landing(props) {
               <Button
                 variant="primary"
                 onClick={() => {
-                  history.push("/requests/request");
+                  navigate("/requests/request");
                   props.setActiveHref("/requests/request");
                 }}
               >
@@ -47,7 +47,7 @@ function Landing(props) {
               </Button>
               <Button
                 onClick={() => {
-                  history.push("/approvals/approve");
+                  navigate("/approvals/approve");
                   props.setActiveHref("/approvals/approve");
                 }}
               >
@@ -56,57 +56,6 @@ function Landing(props) {
             </SpaceBetween>
           </SpaceBetween>
         </div>
-
-        {/* Features Grid */}
-        <Grid
-          gridDefinition={[
-            { colspan: { default: 12, m: 4 } },
-            { colspan: { default: 12, m: 4 } },
-            { colspan: { default: 12, m: 4 } },
-          ]}
-        >
-          <Container>
-            <SpaceBetween size="s">
-              <Box variant="h3">
-                <SpaceBetween size="xs" direction="horizontal" alignItems="center">
-                  <Icon name="lock-private" />
-                  <span>Just-in-Time Access</span>
-                </SpaceBetween>
-              </Box>
-              <Box variant="p" color="text-body-secondary">
-                Request temporary permissions only when needed. Access expires automatically after the approved duration.
-              </Box>
-            </SpaceBetween>
-          </Container>
-
-          <Container>
-            <SpaceBetween size="s">
-              <Box variant="h3">
-                <SpaceBetween size="xs" direction="horizontal" alignItems="center">
-                  <Icon name="check" />
-                  <span>Approval Workflow</span>
-                </SpaceBetween>
-              </Box>
-              <Box variant="p" color="text-body-secondary">
-                Configurable approval policies per account or OU. Auto-approve for on-call engineers when enabled.
-              </Box>
-            </SpaceBetween>
-          </Container>
-
-          <Container>
-            <SpaceBetween size="s">
-              <Box variant="h3">
-                <SpaceBetween size="xs" direction="horizontal" alignItems="center">
-                  <Icon name="search" />
-                  <span>Full Audit Trail</span>
-                </SpaceBetween>
-              </Box>
-              <Box variant="p" color="text-body-secondary">
-                Track all access requests, approvals, and session activity with CloudTrail Lake integration.
-              </Box>
-            </SpaceBetween>
-          </Container>
-        </Grid>
 
         {/* On-Call Status */}
         {!onCallError && (
@@ -133,6 +82,80 @@ function Landing(props) {
             </Container>
           </Box>
         )}
+
+        {/* Features Grid */}
+        <Grid
+          gridDefinition={[
+            { colspan: { default: 12, s: 6, m: 3 } },
+            { colspan: { default: 12, s: 6, m: 3 } },
+            { colspan: { default: 12, s: 6, m: 3 } },
+            { colspan: { default: 12, s: 6, m: 3 } },
+          ]}
+        >
+          <div style={{ height: '100%' }}>
+            <Container fitHeight>
+              <SpaceBetween size="s">
+                <Box variant="h3">
+                  <SpaceBetween size="xs" direction="horizontal" alignItems="center">
+                    <Icon name="lock-private" />
+                    <span>Just-in-Time Access</span>
+                  </SpaceBetween>
+                </Box>
+                <Box variant="p" color="text-body-secondary">
+                  Request temporary permissions only when needed. Access expires automatically.
+                </Box>
+              </SpaceBetween>
+            </Container>
+          </div>
+
+          <div style={{ height: '100%' }}>
+            <Container fitHeight>
+              <SpaceBetween size="s">
+                <Box variant="h3">
+                  <SpaceBetween size="xs" direction="horizontal" alignItems="center">
+                    <Icon name="check" />
+                    <span>Approval Workflow</span>
+                  </SpaceBetween>
+                </Box>
+                <Box variant="p" color="text-body-secondary">
+                  Configurable approval policies per account or OU with auto-approve options.
+                </Box>
+              </SpaceBetween>
+            </Container>
+          </div>
+
+          <div style={{ height: '100%' }}>
+            <Container fitHeight>
+              <SpaceBetween size="s">
+                <Box variant="h3">
+                  <SpaceBetween size="xs" direction="horizontal" alignItems="center">
+                    <Icon name="contact" />
+                    <span>On-Call Support</span>
+                  </SpaceBetween>
+                </Box>
+                <Box variant="p" color="text-body-secondary">
+                  Auto-approve requests for on-call engineers with integration support.
+                </Box>
+              </SpaceBetween>
+            </Container>
+          </div>
+
+          <div style={{ height: '100%' }}>
+            <Container fitHeight>
+              <SpaceBetween size="s">
+                <Box variant="h3">
+                  <SpaceBetween size="xs" direction="horizontal" alignItems="center">
+                    <Icon name="search" />
+                    <span>Full Audit Trail</span>
+                  </SpaceBetween>
+                </Box>
+                <Box variant="p" color="text-body-secondary">
+                  Track all requests, approvals, and session activity with CloudTrail Lake.
+                </Box>
+              </SpaceBetween>
+            </Container>
+          </div>
+        </Grid>
       </SpaceBetween>
     </Box>
   );

@@ -2,7 +2,7 @@
 // This AWS Content is provided subject to the terms of the AWS Customer Agreement available at
 // http://aws.amazon.com/agreement or other written agreement between Customer and either
 // Amazon Web Services, Inc. or Amazon Web Services EMEA SARL or both.
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Box,
   Button,
@@ -20,7 +20,8 @@ import {
   Form,
   Select,
   ColumnLayout,
-  Spinner
+  Spinner,
+  Link,
 } from "@cloudscape-design/components";
 import { useCollection } from "@cloudscape-design/collection-hooks";
 import type { SelectProps, MultiselectProps } from "@cloudscape-design/components";
@@ -32,7 +33,6 @@ interface Preferences {
 import { $api } from "../../api/client";
 import type { components } from "../../api/schema.d";
 import Ous from "../Shared/Ous";
-import "../../index.css";
 
 // Types from OpenAPI schema
 type AccountInfo = components["schemas"]["AccountInfo"];
@@ -41,27 +41,28 @@ type ApproverResponse = components["schemas"]["ApproverResponse"];
 type CreateApproverInput = components["schemas"]["CreateApproverInput"];
 type UpdateApproverInput = components["schemas"]["UpdateApproverInput"];
 
-const COLUMN_DEFINITIONS = [
+// Column definitions factory - takes groups map for name lookup and edit handler
+const createColumnDefinitions = (
+  groupsMap: Map<string, string>,
+  onNameClick: (item: ApproverResponse) => void
+) => [
   {
     id: "id",
     sortingField: "id",
-    header: "Id",
-    cell: (item: ApproverResponse) => item.id,
-    width: 220,
-  },
-  {
-    id: "name",
-    sortingField: "name",
-    header: "Name",
-    cell: (item: ApproverResponse) => item.name,
-    width: 220,
+    header: "Account/OU",
+    cell: (item: ApproverResponse) => (
+      <Link onFollow={(e) => { e.preventDefault(); onNameClick(item); }}>
+        {`${item.id} (${item.name})`}
+      </Link>
+    ),
+    width: 320,
   },
   {
     id: "type",
     sortingField: "type",
     header: "Type",
     cell: (item: ApproverResponse) => item.type,
-    width: 200,
+    width: 120,
   },
   {
     id: "approvers",
@@ -70,10 +71,8 @@ const COLUMN_DEFINITIONS = [
     cell: (item: ApproverResponse) => (
       <TextContent>
         <ul>
-          {item.groupNames?.map((name, index) => (
-            <li key={item.groupIds[index] || index}>{name}</li>
-          )) ?? item.groupIds.map((id) => (
-            <li key={id}>{id}</li>
+          {item.groupIds.map((groupId) => (
+            <li key={groupId}>{groupsMap.get(groupId) || groupId}</li>
           ))}
         </ul>
       </TextContent>
@@ -108,8 +107,7 @@ const MyCollectionPreferences = ({ preferences, setPreferences }: { preferences:
           {
             label: "Approver properties",
             options: [
-              { id: "id", label: "Id", editable: false },
-              { id: "name", label: "Name" },
+              { id: "id", label: "Account/OU", editable: false },
               { id: "type", label: "Type" },
               { id: "approvers", label: "Approver groups" },
             ],
@@ -223,12 +221,46 @@ function Approvers(props: ApproversProps) {
   const ous = Array.isArray(ousData) ? ousData : [];
   const groups: GroupInfo[] = Array.isArray(groupsQuery.data) ? groupsQuery.data : [];
 
+  // Build a map of groupId -> groupName for efficient lookup
+  const groupsMap = useMemo(() => {
+    const map = new Map<string, string>();
+    groups.forEach((group) => {
+      map.set(group.GroupId, group.DisplayName);
+    });
+    return map;
+  }, [groups]);
+
+  // State for item being edited via name click
+  const [editItem, setEditItem] = useState<ApproverResponse | null>(null);
+
+  // Handler for name column click - opens edit modal for the clicked item
+  const handleNameClick = (item: ApproverResponse) => {
+    setEditItem(item);
+    setApprover(
+      item.groupIds.map((groupId: string) => {
+        // Use groupsMap to resolve name, fallback to groupNames array, then groupId
+        const groupName = groupsMap.get(groupId) ?? groupId;
+        return {
+          label: groupName,
+          value: groupId,
+          description: groupId,
+        };
+      })
+    );
+    setEditVisible(true);
+  };
+
+  // Create column definitions with the groups map and name click handler
+  const columnDefinitions = useMemo(
+    () => createColumnDefinitions(groupsMap, handleNameClick),
+    [groupsMap]
+  );
+
   // UI state (only what's truly needed for UI interactions)
   const [preferences, setPreferences] = useState<Preferences>({
     pageSize: 10,
     visibleContent: [
       "id",
-      "name",
       "type",
       "approvers",
     ],
@@ -268,7 +300,7 @@ function Approvers(props: ApproversProps) {
     return selectedType === defaultType || item.type === selectedType.label;
   }
 
-  const SEARCHABLE_COLUMNS = COLUMN_DEFINITIONS.map((item) => item.id);
+  const SEARCHABLE_COLUMNS = columnDefinitions.map((item) => item.id);
 
   const {
     items,
@@ -337,8 +369,9 @@ function Approvers(props: ApproversProps) {
 
   function handleConfirmEdit() {
     const valid = validate("edit");
-    if (valid && selectedItems && selectedItems.length > 0) {
-      const item = selectedItems[0] as ApproverResponse;
+    // Use editItem (from name click) or selectedItems[0] (from dropdown)
+    const item = editItem || (selectedItems && selectedItems.length > 0 ? selectedItems[0] as ApproverResponse : null);
+    if (valid && item) {
       const body: UpdateApproverInput = {
         groupIds: approver.map(({ value }) => value ?? ""),
         groupNames: approver.map(({ label }) => label ?? ""),
@@ -354,8 +387,9 @@ function Approvers(props: ApproversProps) {
     if (selectedItems && selectedItems.length > 0) {
       const item = selectedItems[0] as ApproverResponse;
       setApprover(
-        item.groupIds.map((groupId: string, index: number) => {
-          const groupName = item.groupNames?.[index] ?? groupId;
+        item.groupIds.map((groupId: string) => {
+          // Use groupsMap to resolve name, fallback to groupId
+          const groupName = groupsMap.get(groupId) ?? groupId;
           return {
             label: groupName,
             value: groupId,
@@ -414,6 +448,7 @@ function Approvers(props: ApproversProps) {
     setVisible(false);
     setDeleteVisible(false);
     setEditVisible(false);
+    setEditItem(null);
     setType(null);
     setTypeError("");
     setResource([]);
@@ -437,7 +472,7 @@ function Approvers(props: ApproversProps) {
   };
 
   return (
-    <div className="container">
+    <div>
       <Table
         {...collectionProps}
         resizableColumns={true}
@@ -486,16 +521,16 @@ function Approvers(props: ApproversProps) {
           </Header>
         }
         filter={
-          <div className="input-container">
+          <div style={{ display: 'flex', flexWrap: 'wrap', flexGrow: 10, marginRight: '2rem' }}>
             <TextFilter
               {...filterProps}
               filteringPlaceholder="Find approvers"
               countText={String(filteredItemsCount)}
-              className="input-filter"
+              style={{ flexGrow: 6, width: 'auto', maxWidth: 728, marginRight: '1rem' }}
             />
             <Select
               {...filterProps}
-              className="select-filter engine-filter"
+              style={{ maxWidth: 130, flexGrow: 2, width: 'auto', marginRight: '1rem' }}
               selectedAriaLabel="Selected"
               options={selectTypeOptions}
               selectedOption={selectedOption}
@@ -506,7 +541,7 @@ function Approvers(props: ApproversProps) {
             />
           </div>
         }
-        columnDefinitions={COLUMN_DEFINITIONS}
+        columnDefinitions={columnDefinitions}
         visibleColumns={preferences.visibleContent}
         pagination={<Pagination {...paginationProps} />}
         preferences={
@@ -669,7 +704,7 @@ function Approvers(props: ApproversProps) {
       >
         Are you sure you want to delete approvers ?
       </Modal>
-      {selectedItems && selectedItems.length > 0 && (
+      {(editItem || (selectedItems && selectedItems.length > 0)) && (
         <Modal
           onDismiss={() => handleDismiss()}
           visible={editVisible}
@@ -701,12 +736,12 @@ function Approvers(props: ApproversProps) {
           <SpaceBetween size="l">
             <ColumnLayout columns={3} variant="text-grid">
               <ValueWithLabel label="Entity type">
-                {(selectedItems[0] as ApproverResponse).type}
+                {(editItem || selectedItems?.[0] as ApproverResponse)?.type}
               </ValueWithLabel>
               <ValueWithLabel label="Name">
-                {(selectedItems[0] as ApproverResponse).name}
+                {(editItem || selectedItems?.[0] as ApproverResponse)?.name}
               </ValueWithLabel>
-              <ValueWithLabel label="Id">{(selectedItems[0] as ApproverResponse).id}</ValueWithLabel>
+              <ValueWithLabel label="Id">{(editItem || selectedItems?.[0] as ApproverResponse)?.id}</ValueWithLabel>
             </ColumnLayout>
             <FormField
               label="Approver Groups"

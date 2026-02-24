@@ -15,7 +15,6 @@ import {
 } from "@cloudscape-design/components";
 import { useCollection } from "@cloudscape-design/collection-hooks";
 import { $api } from "../../api/client";
-import "../../index.css";
 import { CSVLink } from "react-csv";
 
 const COLUMN_DEFINITIONS = [
@@ -97,10 +96,6 @@ function EmptyState({ title, subtitle, action }: { title: string; subtitle: stri
   );
 }
 
-interface SessionItem {
-  queryId?: string;
-}
-
 function Logs(props) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const csvLink = useRef<any>(null);
@@ -109,24 +104,19 @@ function Logs(props) {
     visibleContent: ["eventID", "eventName", "eventSource", "eventTime"],
   });
 
-  // Mutations
-  const createSession = $api.useMutation('post', '/sessions');
-  const startSessionLogs = $api.useMutation('post', '/sessions/{session_id}/logs');
+  // Mutation to start CloudTrail query for this request
+  const startRequestLogs = $api.useMutation('post', '/requests/{request_id}/logs');
 
-  // Query for session to get existing queryId
-  const sessionQuery = $api.useQuery('get', '/sessions/{session_id}', {
-    params: { path: { session_id: props.item?.id || '' } },
-  }, { enabled: !!props.item?.id });
-
-  // Get queryId from session or from mutation result
-  const queryId = (sessionQuery.data as SessionItem)?.queryId || (startSessionLogs.data as { queryId?: string })?.queryId;
+  // Get queryId from request item or from mutation result
+  const queryId = props.item?.queryId || (startRequestLogs.data as { queryId?: string })?.queryId;
 
   // Query for logs (enabled when we have a queryId)
+  const isSessionActive = props.item?.sessionStatus === "in-progress";
   const logsQuery = $api.useQuery('get', '/logs', {
     params: { query: { queryId: queryId || undefined } },
   }, {
     enabled: !!queryId,
-    refetchInterval: props.item?.status === "in progress" ? 10000 : false
+    refetchInterval: isSessionActive ? 10000 : false
   });
 
   // Derive allItems from logsQuery data
@@ -163,40 +153,26 @@ function Logs(props) {
       ),
     },
     pagination: { pageSize: preferences.pageSize },
-    sorting: {},
+    sorting: {
+      defaultState: {
+        sortingColumn: { sortingField: "eventTime" },
+        isDescending: true,
+      },
+    },
     selection: {},
   });
 
   const { selectedItems } = collectionProps;
 
-  const isStartingQuery = createSession.isPending || startSessionLogs.isPending;
-  const tableLoading = sessionQuery.isLoading || logsQuery.isLoading;
+  const isStartingQuery = startRequestLogs.isPending;
+  const tableLoading = logsQuery.isLoading;
 
   async function handleStartQuery() {
-    const endTime = props.item.status === "in progress"
-      ? new Date().toISOString()
-      : new Date(Date.parse(props.item.endTime) + 60 * 60 * 1000).toISOString();
-    const expiry = props.item.status === "in progress"
-      ? Math.floor(Date.now() / 1000)
-      : Math.floor(Date.now() / 1000) + 432000;
-
-    const sessionData = {
-      id: props.item.id,
-      startTime: props.item.startTime,
-      endTime: endTime,
-      username: props.item.username,
-      accountId: props.item.accountId,
-      role: props.item.role,
-      approver_ids: props.item.approver_ids,
-      expireAt: expiry,
-    };
-
-    await createSession.mutateAsync({ body: sessionData as never });
-    await startSessionLogs.mutateAsync({ params: { path: { session_id: props.item.id } } });
+    await startRequestLogs.mutateAsync({ params: { path: { request_id: props.item.id } } });
   }
 
   // Show "Start Query" button if no queryId exists yet
-  if (!queryId && !sessionQuery.isLoading) {
+  if (!queryId) {
     return (
       <Box textAlign="center" padding="xl">
         <SpaceBetween size="m" direction="vertical">
@@ -209,7 +185,7 @@ function Logs(props) {
           >
             Start Query
           </Button>
-          {startSessionLogs.isError && (
+          {startRequestLogs.isError && (
             <Box color="text-status-error">Error starting query. Please try again.</Box>
           )}
         </SpaceBetween>
@@ -218,7 +194,7 @@ function Logs(props) {
   }
 
   return (
-    <div className="container">
+    <div>
       <Table
         {...collectionProps}
         resizableColumns={true}
@@ -234,7 +210,7 @@ function Logs(props) {
             description="Session activity logs are delivered in near real time"
             actions={
               <SpaceBetween size="s" direction="horizontal">
-                {props.item.status === "in progress" && (
+                {isSessionActive && (
                   <Button
                     iconName="refresh"
                     onClick={() => logsQuery.refetch()}
@@ -266,12 +242,12 @@ function Logs(props) {
           </Header>
         }
         filter={
-          <div className="input-container">
+          <div style={{ display: 'flex', flexWrap: 'wrap', flexGrow: 10, marginRight: '2rem' }}>
             <TextFilter
               {...filterProps}
               filteringPlaceholder="Search Logs"
               countText={String(filteredItemsCount)}
-              className="input-filter"
+              style={{ flexGrow: 6, width: 'auto', maxWidth: 728, marginRight: '1rem' }}
             />
           </div>
         }

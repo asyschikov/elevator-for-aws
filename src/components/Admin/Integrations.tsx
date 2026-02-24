@@ -194,7 +194,7 @@ function Integrations(props: IntegrationsProps) {
   });
 
   return (
-    <div className="container">
+    <div>
       <Cards
         cardDefinition={{
           header: (item) => item.label,

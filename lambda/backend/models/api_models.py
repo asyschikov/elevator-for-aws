@@ -42,14 +42,8 @@ class UpdateRequestInput(BaseModel):
     session_duration: Optional[str] = None
     userId: Optional[str] = None
     approvalRequired: Optional[bool] = None
+    allowSelfApproval: Optional[bool] = None
     comment: Optional[str] = None
-
-
-class UpdateSessionInput(BaseModel):
-    """Input model for updating a session"""
-    endTime: Optional[str] = None
-    queryId: Optional[str] = None
-    expireAt: Optional[int] = None
 
 
 class CreateEligibilityInput(BaseModel):
@@ -63,6 +57,7 @@ class CreateEligibilityInput(BaseModel):
     approvalRequired: bool
     duration: str
     autoApprovalOnCall: bool  # Auto-approve if user is on-call
+    allowSelfApproval: bool  # Allow user to approve their own requests (required)
 
 
 class UpdateSettingsInput(BaseModel):
@@ -122,7 +117,8 @@ class EligibilityResponse(BaseModel):
     permissions: List[Dict[str, str]]
     approvalRequired: bool
     duration: str
-    autoApprovalOnCall: bool = False  # Auto-approve if user is on-call
+    autoApprovalOnCall: bool  # Auto-approve if user is on-call (required)
+    allowSelfApproval: bool  # Allow user to approve their own requests (required)
 
 
 class EligibilityListResponse(BaseModel):
@@ -143,7 +139,8 @@ class EntitlementPolicy(BaseModel):
     permissions: List[Dict[str, str]]
     approvalRequired: bool
     duration: str
-    autoApprovalOnCall: bool = False  # Auto-approve if user is on-call
+    autoApprovalOnCall: bool  # Auto-approve if user is on-call (required)
+    allowSelfApproval: bool  # Allow user to approve their own requests (required)
 
 
 class EntitlementResponse(BaseModel):
@@ -156,7 +153,8 @@ class EntitlementResponse(BaseModel):
 class EligibilityCheckResult(BaseModel):
     """Result of eligibility check"""
     approval: bool
-    autoApprovalOnCall: bool = False
+    autoApprovalOnCall: bool
+    allowSelfApproval: bool
 
 
 # =============================================================================

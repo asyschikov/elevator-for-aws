@@ -18,7 +18,6 @@ class EnvironmentSettings(BaseSettings):
 
     # DynamoDB table names - all required
     requests_table: str
-    sessions_table: str
     approvers_table: str
     settings_table: str
     eligibility_table: str
@@ -40,6 +39,7 @@ class EnvironmentSettings(BaseSettings):
 
     # Lambda function ARNs
     revocation_function_arn: str = ''
+    scheduler_role_arn: str = ''
 
     # Cognito groups - all required
     elevator_admin_group: str

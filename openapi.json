@@ -506,141 +506,18 @@
         }
       }
     },
-    "/sessions/{session_id}": {
-      "get": {
-        "summary": "GET /sessions/{session_id}",
-        "operationId": "get_session_sessions__session_id__get",
-        "parameters": [
-          {
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Session Id"
-            },
-            "name": "session_id",
-            "in": "path"
-          }
-        ],
-        "responses": {
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SessionItem"
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "summary": "PUT /sessions/{session_id}",
-        "operationId": "update_session_sessions__session_id__put",
-        "parameters": [
-          {
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Session Id"
-            },
-            "name": "session_id",
-            "in": "path"
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateSessionInput"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SessionItem"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "summary": "DELETE /sessions/{session_id}",
-        "operationId": "delete_session_sessions__session_id__delete",
-        "parameters": [
-          {
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Session Id"
-            },
-            "name": "session_id",
-            "in": "path"
-          }
-        ],
-        "responses": {
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SuccessResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/sessions/{session_id}/logs": {
+    "/requests/{request_id}/logs": {
       "post": {
-        "summary": "POST /sessions/{session_id}/logs",
-        "operationId": "start_session_logs_sessions__session_id__logs_post",
+        "summary": "POST /requests/{request_id}/logs",
+        "operationId": "start_request_logs_requests__request_id__logs_post",
         "parameters": [
           {
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Session Id"
+              "title": "Request Id"
             },
-            "name": "session_id",
+            "name": "request_id",
             "in": "path"
           }
         ],
@@ -1389,98 +1266,6 @@
         }
       }
     },
-    "/sessions": {
-      "get": {
-        "summary": "GET /sessions",
-        "operationId": "list_sessions_sessions_get",
-        "parameters": [
-          {
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "title": "Limit",
-              "default": 100
-            },
-            "name": "limit",
-            "in": "query"
-          },
-          {
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Lastkey"
-            },
-            "name": "lastKey",
-            "in": "query"
-          }
-        ],
-        "responses": {
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DynamoDBScanResponse"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "summary": "POST /sessions",
-        "operationId": "create_session_sessions_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SessionItem"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SessionItem"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/user-policy": {
       "get": {
         "summary": "GET /user-policy",
@@ -1837,6 +1622,10 @@
           "autoApprovalOnCall": {
             "type": "boolean",
             "title": "Autoapprovaloncall"
+          },
+          "allowSelfApproval": {
+            "type": "boolean",
+            "title": "Allowselfapproval"
           }
         },
         "additionalProperties": true,
@@ -1848,7 +1637,8 @@
           "permissions",
           "approvalRequired",
           "duration",
-          "autoApprovalOnCall"
+          "autoApprovalOnCall",
+          "allowSelfApproval"
         ],
         "title": "CreateEligibilityInput",
         "description": "Input model for creating eligibility"
@@ -2047,8 +1837,11 @@
           },
           "autoApprovalOnCall": {
             "type": "boolean",
-            "title": "Autoapprovaloncall",
-            "default": false
+            "title": "Autoapprovaloncall"
+          },
+          "allowSelfApproval": {
+            "type": "boolean",
+            "title": "Allowselfapproval"
           }
         },
         "type": "object",
@@ -2058,7 +1851,9 @@
           "ous",
           "permissions",
           "approvalRequired",
-          "duration"
+          "duration",
+          "autoApprovalOnCall",
+          "allowSelfApproval"
         ],
         "title": "EligibilityResponse",
         "description": "Response model for eligibility/policy"
@@ -2095,8 +1890,11 @@
           },
           "autoApprovalOnCall": {
             "type": "boolean",
-            "title": "Autoapprovaloncall",
-            "default": false
+            "title": "Autoapprovaloncall"
+          },
+          "allowSelfApproval": {
+            "type": "boolean",
+            "title": "Allowselfapproval"
           }
         },
         "type": "object",
@@ -2104,7 +1902,9 @@
           "accounts",
           "permissions",
           "approvalRequired",
-          "duration"
+          "duration",
+          "autoApprovalOnCall",
+          "allowSelfApproval"
         ],
         "title": "EntitlementPolicy",
         "description": "Policy in entitlement response"
@@ -2372,7 +2172,14 @@
             "title": "Role"
           },
           "userId": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Userid"
           },
           "status": {
@@ -2387,12 +2194,36 @@
               "revoked",
               "cancelled",
               "expired",
-              "error"
+              "error",
+              "ended"
             ],
             "title": "Status"
           },
+          "sessionStatus": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "not-started",
+                  "in-progress",
+                  "finished"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sessionstatus"
+          },
           "time": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Time"
           },
           "duration": {
@@ -2429,17 +2260,42 @@
             "title": "Endtime"
           },
           "justification": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Justification"
           },
           "ticketNo": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Ticketno"
           },
           "approvalRequired": {
             "type": "boolean",
             "title": "Approvalrequired",
             "default": true
+          },
+          "allowSelfApproval": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowselfapproval"
           },
           "approvers": {
             "anyOf": [
@@ -2534,6 +2390,17 @@
               }
             ],
             "title": "Error"
+          },
+          "queryId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queryid"
           }
         },
         "additionalProperties": true,
@@ -2546,11 +2413,7 @@
           "accountName",
           "roleId",
           "role",
-          "userId",
-          "status",
-          "time",
-          "justification",
-          "ticketNo"
+          "status"
         ],
         "title": "RequestItem",
         "description": "DynamoDB request item model"
@@ -2580,133 +2443,6 @@
         ],
         "title": "RevokeRequestResponse",
         "description": "Response for revoke request API endpoint"
-      },
-      "SessionItem": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "requestId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Requestid"
-          },
-          "userId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Userid"
-          },
-          "username": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Username"
-          },
-          "accountId": {
-            "type": "string",
-            "title": "Accountid"
-          },
-          "role": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Role"
-          },
-          "roleId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Roleid"
-          },
-          "startTime": {
-            "type": "string",
-            "title": "Starttime"
-          },
-          "endTime": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Endtime"
-          },
-          "approver_ids": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "string"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Approver Ids"
-          },
-          "queryId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Queryid"
-          },
-          "expireAt": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expireat"
-          }
-        },
-        "additionalProperties": true,
-        "type": "object",
-        "required": [
-          "id",
-          "accountId",
-          "startTime"
-        ],
-        "title": "SessionItem",
-        "description": "DynamoDB session item model"
       },
       "SettingsItem": {
         "properties": {
@@ -3090,6 +2826,17 @@
             ],
             "title": "Approvalrequired"
           },
+          "allowSelfApproval": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowselfapproval"
+          },
           "comment": {
             "anyOf": [
               {
@@ -3109,46 +2856,6 @@
         ],
         "title": "UpdateRequestInput",
         "description": "Input model for updating a request"
-      },
-      "UpdateSessionInput": {
-        "properties": {
-          "endTime": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Endtime"
-          },
-          "queryId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Queryid"
-          },
-          "expireAt": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expireat"
-          }
-        },
-        "type": "object",
-        "title": "UpdateSessionInput",
-        "description": "Input model for updating a session"
       },
       "UpdateSettingsInput": {
         "properties": {

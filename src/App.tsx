@@ -5,10 +5,9 @@
 import React, { useEffect, useState } from "react";
 import { signInWithRedirect, getCurrentUser, fetchAuthSession } from "aws-amplify/auth";
 import { Hub } from "aws-amplify/utils";
-import { Spin } from "antd";
+import Spinner from "@cloudscape-design/components/spinner";
 import Nav from "./components/Navigation/Nav";
-import "./index.css";
-import { Button, SpaceBetween, Box, Icon, Grid, Container } from "@cloudscape-design/components";
+import { Button, SpaceBetween, Box, Icon, Container } from "@cloudscape-design/components";
 
 // Amplify is configured in index.tsx
 
@@ -18,18 +17,37 @@ function Home({ loading }: { loading: boolean }) {
   };
 
   return (
-    <div className="signin-page">
-      <Spin spinning={loading} size="large">
-        <div className="signin-content">
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)' }}>
+      {loading ? <Spinner size="large" /> : (
+        <div style={{ maxWidth: 600, padding: '3rem 2rem', textAlign: 'center' }}>
           <SpaceBetween size="xxl" alignItems="center">
             {/* Hero */}
-            <SpaceBetween size="m" alignItems="center">
+            <SpaceBetween size="l" alignItems="center">
               <Box variant="h1" fontSize="display-l" fontWeight="bold">
-                Elevator
+                AWS Elevator
               </Box>
               <Box variant="p" fontSize="heading-m" color="text-body-secondary" textAlign="center">
                 Temporary Elevated Access Management
               </Box>
+              {/* Features - columnar under subtitle */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginTop: '1rem', width: '100%' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', color: '#5f6b7a', fontSize: 13, textAlign: 'center' }}>
+                  <Icon name="lock-private" size="medium" />
+                  <span>Just-in-Time Access</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', color: '#5f6b7a', fontSize: 13, textAlign: 'center' }}>
+                  <Icon name="check" size="medium" />
+                  <span>Approval Workflow</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', color: '#5f6b7a', fontSize: 13, textAlign: 'center' }}>
+                  <Icon name="contact" size="medium" />
+                  <span>On-Call Support</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', color: '#5f6b7a', fontSize: 13, textAlign: 'center' }}>
+                  <Icon name="search" size="medium" />
+                  <span>Full Audit Trail</span>
+                </div>
+              </div>
             </SpaceBetween>
 
             {/* Sign In Card */}
@@ -39,44 +57,13 @@ function Home({ loading }: { loading: boolean }) {
                   Request and approve time-bound privileged access to your AWS accounts
                 </Box>
                 <Button variant="primary" onClick={handleSignIn}>
-                  Sign in with SSO
+                  Sign in with AWS IdC
                 </Button>
               </SpaceBetween>
             </Container>
-
-            {/* Features */}
-            <Grid
-              gridDefinition={[
-                { colspan: { default: 12, s: 4 } },
-                { colspan: { default: 12, s: 4 } },
-                { colspan: { default: 12, s: 4 } },
-              ]}
-            >
-              <SpaceBetween size="xs" alignItems="center">
-                <Icon name="lock-private" size="large" />
-                <Box fontWeight="bold">Just-in-Time</Box>
-                <Box variant="small" color="text-body-secondary" textAlign="center">
-                  Access expires automatically
-                </Box>
-              </SpaceBetween>
-              <SpaceBetween size="xs" alignItems="center">
-                <Icon name="check" size="large" />
-                <Box fontWeight="bold">Approval Workflow</Box>
-                <Box variant="small" color="text-body-secondary" textAlign="center">
-                  Configurable policies
-                </Box>
-              </SpaceBetween>
-              <SpaceBetween size="xs" alignItems="center">
-                <Icon name="search" size="large" />
-                <Box fontWeight="bold">Full Audit Trail</Box>
-                <Box variant="small" color="text-body-secondary" textAlign="center">
-                  CloudTrail integration
-                </Box>
-              </SpaceBetween>
-            </Grid>
           </SpaceBetween>
         </div>
-      </Spin>
+      )}
     </div>
   );
 }

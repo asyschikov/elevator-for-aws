@@ -13,7 +13,6 @@ import os
 os.environ.setdefault('AWS_DEFAULT_REGION', 'us-east-1')
 os.environ.setdefault('AWS_REGION', 'us-east-1')
 os.environ.setdefault('REQUESTS_TABLE', 'dummy')
-os.environ.setdefault('SESSIONS_TABLE', 'dummy')
 os.environ.setdefault('APPROVERS_TABLE', 'dummy')
 os.environ.setdefault('SETTINGS_TABLE', 'dummy')
 os.environ.setdefault('ELIGIBILITY_TABLE', 'dummy')

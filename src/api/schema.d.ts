@@ -96,26 +96,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/sessions/{session_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** GET /sessions/{session_id} */
-        get: operations["get_session_sessions__session_id__get"];
-        /** PUT /sessions/{session_id} */
-        put: operations["update_session_sessions__session_id__put"];
-        post?: never;
-        /** DELETE /sessions/{session_id} */
-        delete: operations["delete_session_sessions__session_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/sessions/{session_id}/logs": {
+    "/requests/{request_id}/logs": {
         parameters: {
             query?: never;
             header?: never;
@@ -124,8 +105,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** POST /sessions/{session_id}/logs */
-        post: operations["start_session_logs_sessions__session_id__logs_post"];
+        /** POST /requests/{request_id}/logs */
+        post: operations["start_request_logs_requests__request_id__logs_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -392,24 +373,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/sessions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** GET /sessions */
-        get: operations["list_sessions_sessions_get"];
-        put?: never;
-        /** POST /sessions */
-        post: operations["create_session_sessions_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/user-policy": {
         parameters: {
             query?: never;
@@ -560,6 +523,8 @@ export interface components {
             duration: string;
             /** Autoapprovaloncall */
             autoApprovalOnCall: boolean;
+            /** Allowselfapproval */
+            allowSelfApproval: boolean;
         } & {
             [key: string]: unknown;
         };
@@ -651,11 +616,10 @@ export interface components {
             approvalRequired: boolean;
             /** Duration */
             duration: string;
-            /**
-             * Autoapprovaloncall
-             * @default false
-             */
+            /** Autoapprovaloncall */
             autoApprovalOnCall: boolean;
+            /** Allowselfapproval */
+            allowSelfApproval: boolean;
         };
         /**
          * EntitlementPolicy
@@ -674,11 +638,10 @@ export interface components {
             approvalRequired: boolean;
             /** Duration */
             duration: string;
-            /**
-             * Autoapprovaloncall
-             * @default false
-             */
+            /** Autoapprovaloncall */
             autoApprovalOnCall: boolean;
+            /** Allowselfapproval */
+            allowSelfApproval: boolean;
         };
         /**
          * EntitlementResponse
@@ -811,14 +774,16 @@ export interface components {
             /** Role */
             role: string;
             /** Userid */
-            userId: string;
+            userId?: string | null;
             /**
              * Status
              * @enum {string}
              */
-            status: "pending" | "approved" | "rejected" | "scheduled" | "in_progress" | "granted" | "revoked" | "cancelled" | "expired" | "error";
+            status: "pending" | "approved" | "rejected" | "scheduled" | "in_progress" | "granted" | "revoked" | "cancelled" | "expired" | "error" | "ended";
+            /** Sessionstatus */
+            sessionStatus?: ("not-started" | "in-progress" | "finished") | null;
             /** Time */
-            time: string;
+            time?: string | null;
             /** Duration */
             duration?: string | null;
             /** Starttime */
@@ -826,14 +791,16 @@ export interface components {
             /** Endtime */
             endTime?: string | null;
             /** Justification */
-            justification: string;
+            justification?: string | null;
             /** Ticketno */
-            ticketNo: string;
+            ticketNo?: string | null;
             /**
              * Approvalrequired
              * @default true
              */
             approvalRequired: boolean;
+            /** Allowselfapproval */
+            allowSelfApproval?: boolean | null;
             /** Approvers */
             approvers?: string[] | null;
             /** Approver Ids */
@@ -850,6 +817,8 @@ export interface components {
             session_duration?: string | null;
             /** Error */
             error?: string | null;
+            /** Queryid */
+            queryId?: string | null;
         } & {
             [key: string]: unknown;
         };
@@ -868,38 +837,6 @@ export interface components {
             request: {
                 [key: string]: unknown;
             };
-        };
-        /**
-         * SessionItem
-         * @description DynamoDB session item model
-         */
-        SessionItem: {
-            /** Id */
-            id: string;
-            /** Requestid */
-            requestId?: string | null;
-            /** Userid */
-            userId?: string | null;
-            /** Username */
-            username?: string | null;
-            /** Accountid */
-            accountId: string;
-            /** Role */
-            role?: string | null;
-            /** Roleid */
-            roleId?: string | null;
-            /** Starttime */
-            startTime: string;
-            /** Endtime */
-            endTime?: string | null;
-            /** Approver Ids */
-            approver_ids?: string[] | null;
-            /** Queryid */
-            queryId?: string | null;
-            /** Expireat */
-            expireAt?: number | null;
-        } & {
-            [key: string]: unknown;
         };
         /**
          * SettingsItem
@@ -1028,22 +965,12 @@ export interface components {
             userId?: string | null;
             /** Approvalrequired */
             approvalRequired?: boolean | null;
+            /** Allowselfapproval */
+            allowSelfApproval?: boolean | null;
             /** Comment */
             comment?: string | null;
         } & {
             [key: string]: unknown;
-        };
-        /**
-         * UpdateSessionInput
-         * @description Input model for updating a session
-         */
-        UpdateSessionInput: {
-            /** Endtime */
-            endTime?: string | null;
-            /** Queryid */
-            queryId?: string | null;
-            /** Expireat */
-            expireAt?: number | null;
         };
         /**
          * UpdateSettingsInput
@@ -1510,109 +1437,12 @@ export interface operations {
             };
         };
     };
-    get_session_sessions__session_id__get: {
+    start_request_logs_requests__request_id__logs_post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                session_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SessionItem"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_session_sessions__session_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                session_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateSessionInput"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SessionItem"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_session_sessions__session_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                session_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SuccessResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    start_session_logs_sessions__session_id__logs_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                session_id: string;
+                request_id: string;
             };
             cookie?: never;
         };
@@ -2235,71 +2065,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CloudTrailQueryResponse"] | components["schemas"]["CloudTrailLogEntry"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_sessions_sessions_get: {
-        parameters: {
-            query?: {
-                limit?: number;
-                lastKey?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DynamoDBScanResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_session_sessions_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SessionItem"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SessionItem"];
                 };
             };
             /** @description Validation Error */

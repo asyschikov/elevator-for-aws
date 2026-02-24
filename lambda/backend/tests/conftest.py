@@ -13,7 +13,6 @@ from aws_lambda_powertools.utilities.typing import LambdaContext
 os.environ.setdefault('AWS_DEFAULT_REGION', 'us-east-1')
 os.environ.setdefault('AWS_REGION', 'us-east-1')
 os.environ.setdefault('REQUESTS_TABLE', 'test-requests')
-os.environ.setdefault('SESSIONS_TABLE', 'test-sessions')
 os.environ.setdefault('APPROVERS_TABLE', 'test-approvers')
 os.environ.setdefault('SETTINGS_TABLE', 'test-settings')
 os.environ.setdefault('ELIGIBILITY_TABLE', 'test-eligibility')
@@ -26,6 +25,7 @@ os.environ.setdefault('ELEVATOR_LOGIN_URL', 'https://test.example.com/')
 os.environ.setdefault('EVENT_DATA_STORE_ARN', 'arn:aws:cloudtrail:us-east-1:123456789012:eventdatastore/test')
 os.environ.setdefault('REVOKE_RULE_NAME', 'test-revoke-rule')
 os.environ.setdefault('REVOCATION_FUNCTION_ARN', 'arn:aws:lambda:us-east-1:123456789012:function:test-revoke')
+os.environ.setdefault('SCHEDULER_ROLE_ARN', 'arn:aws:iam::123456789012:role/test-scheduler-role')
 os.environ.setdefault('ELEVATOR_ADMIN_GROUP', 'Admin')
 os.environ.setdefault('ELEVATOR_AUDITOR_GROUP', 'Auditors')
 os.environ.setdefault('INTEGRATIONS_TABLE', 'test-integrations')
@@ -67,12 +67,6 @@ def aws_environment():
         tables = {
             'requests': dynamodb.create_table(
                 TableName='test-requests',
-                KeySchema=[{'AttributeName': 'id', 'KeyType': 'HASH'}],
-                AttributeDefinitions=[{'AttributeName': 'id', 'AttributeType': 'S'}],
-                BillingMode='PAY_PER_REQUEST'
-            ),
-            'sessions': dynamodb.create_table(
-                TableName='test-sessions',
                 KeySchema=[{'AttributeName': 'id', 'KeyType': 'HASH'}],
                 AttributeDefinitions=[{'AttributeName': 'id', 'AttributeType': 'S'}],
                 BillingMode='PAY_PER_REQUEST'
@@ -177,7 +171,7 @@ def aws_environment():
         # Create test user in Identity Store
         user_response = idc.create_user(
             IdentityStoreId=identity_store_id,
-            UserName='testuser',
+            UserName='test@example.com',
             DisplayName='Test User',
             Name={
                 'GivenName': 'Test',
@@ -218,7 +212,7 @@ def aws_environment():
             'permission_set_arn': permission_set_arn,
             'permission_set_name': 'TestPermissionSet',
             'user_id': user_id,
-            'user_name': 'testuser',
+            'user_name': 'test@example.com',
             'group_id': group_id,
             'group_name': 'TestGroup',
             'organization_id': org_id,

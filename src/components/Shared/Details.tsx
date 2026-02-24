@@ -4,11 +4,8 @@
 // Amazon Web Services, Inc. or Amazon Web Services EMEA SARL or both.
 import React from "react";
 import { Box, SpaceBetween, ColumnLayout } from "@cloudscape-design/components";
-import { Divider } from "antd";
 import Status from "./Status";
 import Timer from "../Sessions/Timer";
-import "../../index.css";
-import "antd/dist/antd.css";
 
 function convertAwsDateTime(awsDateTime) {
   // Parse AWS datetime string into a Date object
@@ -28,7 +25,7 @@ function convertAwsDateTime(awsDateTime) {
 function Details(props) {
   const ValueWithLabel = ({ label, children }) => (
     <div>
-      <div className="headings">
+      <div>
         <Box color="inherit" fontSize="body-m">
           {label}
         </Box>
@@ -79,7 +76,7 @@ function Details(props) {
       <div>
         {props.item.approver && (
           <div>
-            <Divider style={{ marginBottom: "10px", marginTop: "10px" }} />
+            <hr style={{ marginBottom: "10px", marginTop: "10px", border: "none", borderTop: "1px solid #e9ebed" }} />
             <ColumnLayout columns={3}>
               <SpaceBetween size="m">
                 <ValueWithLabel

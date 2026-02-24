@@ -2,7 +2,7 @@
 // This AWS Content is provided subject to the terms of the AWS Customer Agreement available at
 // http://aws.amazon.com/agreement or other written agreement between Customer and either
 // Amazon Web Services, Inc. or Amazon Web Services EMEA SARL or both.
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Box,
   Button,
@@ -22,7 +22,8 @@ import {
   ColumnLayout,
   Toggle,
   Input,
-  Spinner
+  Spinner,
+  Link
 } from "@cloudscape-design/components";
 import { useCollection } from "@cloudscape-design/collection-hooks";
 import type { SelectProps, MultiselectProps } from "@cloudscape-design/components";
@@ -34,7 +35,6 @@ interface Preferences {
 import { $api } from "../../api/client";
 import type { components } from "../../api/schema.d";
 import Ous from "../Shared/Ous";
-import "../../index.css";
 
 // Types from OpenAPI schema
 type AccountInfo = components["schemas"]["AccountInfo"];
@@ -45,7 +45,7 @@ type EligibilityResponse = components["schemas"]["EligibilityResponse"];
 type CreateEligibilityInput = components["schemas"]["CreateEligibilityInput"];
 type SettingsItem = components["schemas"]["SettingsItem"];
 
-const COLUMN_DEFINITIONS = [
+const createColumnDefinitions = (onNameClick: (item: EligibilityResponse) => void) => [
   {
     id: "id",
     sortingField: "id",
@@ -57,7 +57,9 @@ const COLUMN_DEFINITIONS = [
     id: "name",
     sortingField: "name",
     header: "Name",
-    cell: (item: EligibilityResponse) => item.name ?? "-",
+    cell: (item: EligibilityResponse) => (
+      <Link onFollow={(e) => { e.preventDefault(); onNameClick(item); }}>{item.name ?? "-"}</Link>
+    ),
     width: 220,
   },
   {
@@ -133,6 +135,13 @@ const COLUMN_DEFINITIONS = [
     cell: (item: EligibilityResponse) => item.autoApprovalOnCall ? "Yes" : "No",
     width: 150,
   },
+  {
+    id: "allowSelfApproval",
+    sortingField: "allowSelfApproval",
+    header: "Allow self-approval",
+    cell: (item: EligibilityResponse) => item.allowSelfApproval === true ? "Yes" : "No",
+    width: 150,
+  },
 ];
 
 const MyCollectionPreferences = ({ preferences, setPreferences }: { preferences: Preferences; setPreferences: (prefs: Preferences) => void }) => {
@@ -170,6 +179,7 @@ const MyCollectionPreferences = ({ preferences, setPreferences }: { preferences:
               { id: "duration", label: "Duration" },
               { id: "approvalRequired", label: "Approval Required" },
               { id: "autoApprovalOnCall", label: "Auto-approve On-call" },
+              { id: "allowSelfApproval", label: "Allow Self-approval" },
             ],
           },
         ],
@@ -301,6 +311,7 @@ function Eligible(props: EligibleProps) {
       "duration",
       "approvalRequired",
       "autoApprovalOnCall",
+      "allowSelfApproval",
     ],
   });
 
@@ -313,6 +324,7 @@ function Eligible(props: EligibleProps) {
   const [durationError, setDurationError] = useState("");
   const [approvalRequired, setApprovalRequired] = useState(true);
   const [autoApprovalOnCall, setAutoApprovalOnCall] = useState(false);
+  const [allowSelfApproval, setAllowSelfApproval] = useState(false);
   const [resource, setResource] = useState<MultiselectProps.Option[]>([]);
   const [resourceError, setResourceError] = useState("");
   const [account, setAccount] = useState<MultiselectProps.Option[]>([]);
@@ -321,6 +333,39 @@ function Eligible(props: EligibleProps) {
   const [ouError, setOuError] = useState("");
   const [permission, setPermission] = useState<readonly MultiselectProps.Option[]>([]);
   const [permissionError, setPermissionError] = useState("");
+  const [editItem, setEditItem] = useState<EligibilityResponse | null>(null);
+
+  // Handler for name column click - opens edit modal for the clicked item
+  const handleNameClick = (item: EligibilityResponse) => {
+    setEditItem(item);
+    // Set up the edit form with the item's values
+    setDuration(String(item.duration));
+    setApprovalRequired(item.approvalRequired);
+    setAutoApprovalOnCall(item.autoApprovalOnCall ?? false);
+    setAllowSelfApproval(item.allowSelfApproval === true);
+    setAccount(item.accounts.map((acc) => ({
+      label: acc.name,
+      value: acc.id,
+      description: acc.id,
+    })));
+    setOU(item.ous.map((o) => ({
+      label: o.name,
+      value: o.id,
+      description: o.id,
+    })));
+    setPermission(item.permissions.map((perm) => ({
+      label: perm.name,
+      value: perm.id,
+      description: perm.id,
+    })));
+    setEditVisible(true);
+  };
+
+  // Create column definitions with the name click handler
+  const columnDefinitions = useMemo(
+    () => createColumnDefinitions(handleNameClick),
+    []
+  );
 
   // Helper functions
   function prepareSelectOptions(field: string, defaultOption: { label: string; value: string }) {
@@ -346,7 +391,7 @@ function Eligible(props: EligibleProps) {
     return selectedType === defaultType || item.type === selectedType.label;
   }
 
-  const SEARCHABLE_COLUMNS = COLUMN_DEFINITIONS.map((item) => item.id);
+  const SEARCHABLE_COLUMNS = columnDefinitions.map((item) => item.id);
 
   const {
     items,
@@ -416,8 +461,9 @@ function Eligible(props: EligibleProps) {
 
   function handleConfirmEdit() {
     const valid = validate("edit");
-    if (valid && selectedItems && selectedItems.length > 0) {
-      const item = selectedItems[0] as EligibilityResponse;
+    // Use editItem (from name click) or selectedItems[0] (from dropdown)
+    const item = editItem || (selectedItems && selectedItems.length > 0 ? selectedItems[0] as EligibilityResponse : null);
+    if (valid && item) {
       const body: CreateEligibilityInput = {
         id: item.id,
         accounts: account.map(({ value, label }) => ({ name: label ?? "", id: value ?? "" })),
@@ -425,7 +471,8 @@ function Eligible(props: EligibleProps) {
         ous: ou.map(({ value, label }) => ({ name: label ?? "", id: value ?? "" })),
         approvalRequired: approvalRequired,
         duration: duration,
-        autoApprovalOnCall: autoApprovalOnCall
+        autoApprovalOnCall: autoApprovalOnCall,
+        allowSelfApproval: allowSelfApproval
       };
       editMutation.mutate({
         params: { path: { policy_id: item.id } },
@@ -460,6 +507,7 @@ function Eligible(props: EligibleProps) {
       );
       setApprovalRequired(item.approvalRequired);
       setAutoApprovalOnCall(item.autoApprovalOnCall ?? false);
+      setAllowSelfApproval(item.allowSelfApproval === true);
       setDuration(item.duration);
       setEditVisible(true);
     }
@@ -512,7 +560,8 @@ function Eligible(props: EligibleProps) {
           ous: ou.map(({ value, label }) => ({ name: label ?? "", id: value ?? "" })),
           approvalRequired: approvalRequired,
           duration: duration,
-          autoApprovalOnCall: autoApprovalOnCall
+          autoApprovalOnCall: autoApprovalOnCall,
+          allowSelfApproval: allowSelfApproval
         };
         addMutation.mutate({ body });
       });
@@ -523,6 +572,7 @@ function Eligible(props: EligibleProps) {
     setVisible(false);
     setDeleteVisible(false);
     setEditVisible(false);
+    setEditItem(null);
     setType(null);
     setTypeError("");
     setResource([]);
@@ -536,6 +586,7 @@ function Eligible(props: EligibleProps) {
     setDurationError("");
     setApprovalRequired(true);
     setAutoApprovalOnCall(false);
+    setAllowSelfApproval(false);
   }
 
   const ValueWithLabel = ({ label, children }: { label: string; children: React.ReactNode }) => (
@@ -553,7 +604,7 @@ function Eligible(props: EligibleProps) {
   };
 
   return (
-    <div className="container">
+    <div>
       <Table
         {...collectionProps}
         resizableColumns={true}
@@ -602,16 +653,16 @@ function Eligible(props: EligibleProps) {
           </Header>
         }
         filter={
-          <div className="input-container">
+          <div style={{ display: 'flex', flexWrap: 'wrap', flexGrow: 10, marginRight: '2rem' }}>
             <TextFilter
               {...filterProps}
               filteringPlaceholder="Find policy"
               countText={String(filteredItemsCount)}
-              className="input-filter"
+              style={{ flexGrow: 6, width: 'auto', maxWidth: 728, marginRight: '1rem' }}
             />
             <Select
               {...filterProps}
-              className="select-filter engine-filter"
+              style={{ maxWidth: 130, flexGrow: 2, width: 'auto', marginRight: '1rem' }}
               selectedAriaLabel="Selected"
               options={selectTypeOptions}
               selectedOption={selectedOption}
@@ -622,7 +673,7 @@ function Eligible(props: EligibleProps) {
             />
           </div>
         }
-        columnDefinitions={COLUMN_DEFINITIONS}
+        columnDefinitions={columnDefinitions}
         visibleColumns={preferences.visibleContent}
         pagination={<Pagination {...paginationProps} />}
         preferences={
@@ -847,6 +898,18 @@ function Eligible(props: EligibleProps) {
                 Auto-approve on-call
               </Toggle>
             </FormField>
+            <FormField
+              label="Allow self-approval"
+              stretch
+              description="Allow users to approve their own requests (when they are also an approver)"
+            >
+              <Toggle
+                onChange={({ detail }) => setAllowSelfApproval(detail.checked)}
+                checked={allowSelfApproval}
+              >
+                Allow self-approval
+              </Toggle>
+            </FormField>
           </SpaceBetween>
         </Form>
       </Modal>
@@ -880,7 +943,7 @@ function Eligible(props: EligibleProps) {
       >
         Are you sure you want to delete policy ?
       </Modal>
-      {selectedItems && selectedItems.length > 0 && (
+      {(editItem || (selectedItems && selectedItems.length > 0)) && (
         <Modal
           onDismiss={() => handleDismiss()}
           visible={editVisible}
@@ -912,12 +975,12 @@ function Eligible(props: EligibleProps) {
           <SpaceBetween size="l">
             <ColumnLayout columns={3} variant="text-grid">
               <ValueWithLabel label="Entity type">
-                {(selectedItems[0] as EligibilityResponse).type}
+                {(editItem || selectedItems?.[0] as EligibilityResponse)?.type}
               </ValueWithLabel>
               <ValueWithLabel label="Name">
-                {(selectedItems[0] as EligibilityResponse).name}
+                {(editItem || selectedItems?.[0] as EligibilityResponse)?.name}
               </ValueWithLabel>
-              <ValueWithLabel label="Id">{(selectedItems[0] as EligibilityResponse).id}</ValueWithLabel>
+              <ValueWithLabel label="Id">{(editItem || selectedItems?.[0] as EligibilityResponse)?.id}</ValueWithLabel>
             </ColumnLayout>
             <FormField
               label="Account"
@@ -1025,6 +1088,18 @@ function Eligible(props: EligibleProps) {
                 checked={autoApprovalOnCall}
               >
                 Auto-approve on-call
+              </Toggle>
+            </FormField>
+            <FormField
+              label="Allow self-approval"
+              stretch
+              description="Allow users to approve their own requests (when they are also an approver)"
+            >
+              <Toggle
+                onChange={({ detail }) => setAllowSelfApproval(detail.checked)}
+                checked={allowSelfApproval}
+              >
+                Allow self-approval
               </Toggle>
             </FormField>
           </SpaceBetween>

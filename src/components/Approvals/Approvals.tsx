@@ -16,9 +16,8 @@ import {
 } from "@cloudscape-design/components";
 import { useCollection } from "@cloudscape-design/collection-hooks";
 import { $api } from "../../api/client";
-import { useHistory } from "react-router-dom";
+import { useLocation } from "wouter";
 import Status from "../Shared/Status";
-import "../../index.css";
 
 interface Preferences {
   pageSize?: number;
@@ -40,7 +39,7 @@ interface RequestItem {
   createdAt?: string;
 }
 
-const COLUMN_DEFINITIONS = [
+const getColumnDefinitions = (navigate: (to: string) => void) => [
   {
     id: "id",
     sortingField: "id",
@@ -53,7 +52,9 @@ const COLUMN_DEFINITIONS = [
     sortingField: "email",
     header: "Requester",
     cell: (item: RequestItem) => (
-      <Link href={`/approvals/approve/${item.id}`}>{item.email}</Link>
+      <Link onFollow={(e) => { e.preventDefault(); navigate(`/approvals/approve/${item.id}`); }}>
+        {item.email}
+      </Link>
     ),
     minWidth: 160,
   },
@@ -170,7 +171,8 @@ interface ApprovalsProps {
 }
 
 function Approvals(props: ApprovalsProps) {
-  const history = useHistory();
+  const [, navigate] = useLocation();
+  const COLUMN_DEFINITIONS = useMemo(() => getColumnDefinitions(navigate), [navigate]);
 
   // React Query hooks
   const requestsQuery = $api.useQuery("get", "/requests", undefined, {
@@ -183,10 +185,9 @@ function Approvals(props: ApprovalsProps) {
     const items = data?.items as unknown as RequestItem[] | undefined;
     if (!items) return [];
 
-    // Filter for pending requests where user is not requester and is an approver
+    // Filter for pending requests where user is an approver
     return items
       .filter((item) =>
-        item.email !== props.user &&
         item.status === "pending" &&
         item.approvers?.includes(props.user)
       )
@@ -237,12 +238,17 @@ function Approvals(props: ApprovalsProps) {
       ),
     },
     pagination: { pageSize: preferences.pageSize },
-    sorting: {},
+    sorting: {
+      defaultState: {
+        sortingColumn: { sortingField: "startTime" },
+        isDescending: true,
+      },
+    },
     selection: {},
   });
 
   function handleView() {
-    history.push("/sessions/active");
+    navigate("/sessions/active");
     props.setActiveHref("/sessions/active");
   }
 
@@ -251,7 +257,7 @@ function Approvals(props: ApprovalsProps) {
   }
 
   return (
-    <div className="container">
+    <div>
       <Table
         {...collectionProps}
         resizableColumns={true}

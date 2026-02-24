@@ -29,7 +29,7 @@ class TestHappyPath:
         # Import index INSIDE the test, after mock_aws() is active
         # This ensures boto3 clients are mocked when index module loads
         import index
-        index.settings.auth_team_userpoolid = aws_environment['user_pool_id']
+        index.settings.auth_elevator_userpoolid = aws_environment['user_pool_id']
 
         # Extract data from aws_environment
         dynamodb_tables = aws_environment['dynamodb_tables']
@@ -49,7 +49,9 @@ class TestHappyPath:
                 {'id': permission_set_arn, 'name': permission_set_name}
             ],
             'approvalRequired': True,
-            'duration': '8'
+            'duration': '8',
+            'autoApprovalOnCall': False,
+            'allowSelfApproval': True,
         }
 
         event_dict = api_gateway_event(
@@ -102,25 +104,30 @@ class TestHappyPath:
         request_id = request_body['id']
         assert request_id is not None
         assert request_body['status'] == 'pending'
-        
+        assert request_body['sessionStatus'] == 'not-started'
+
         # Verify request was stored
         stored_request = dynamodb_tables['requests'].get_item(Key={'id': request_id})
         assert stored_request.get('Item') is not None
         assert stored_request['Item']['status'] == 'pending'
+        assert stored_request['Item']['sessionStatus'] == 'not-started'
         
-        # Step 3: Approve request
+        # Step 3: Approve request (JWT claims set the approver identity)
         update_data = {
             'id': request_id,
             'status': 'approved',
-            'approver': 'approver@example.com',
-            'approverId': 'u-approver123'
         }
-        
+
         event_dict = api_gateway_event(
             'PUT',
             f'/requests/{request_id}',
             body=update_data,
-            path_params={'resource': 'requests', 'resource_id': request_id}
+            path_params={'resource': 'requests', 'resource_id': request_id},
+            jwt_claims={
+                'email': 'test@example.com',
+                'cognito:username': 'testuser',
+                'sub': 'test-sub-12345',
+            }
         )
         event = APIGatewayProxyEventV2(event_dict)
         response = index.backend_handler(event, lambda_context)
@@ -129,11 +136,12 @@ class TestHappyPath:
         approved_body = json.loads(response['body'])
         # When approval triggers immediate grant, access is granted immediately
         assert approved_body['status'] == 'granted'
-        assert approved_body['approver'] == 'approver@example.com'
+        assert approved_body['approver'] == 'test@example.com'
 
         # Verify request was updated - status is granted since grant task completed
         updated_request = dynamodb_tables['requests'].get_item(Key={'id': request_id})
         assert updated_request['Item']['status'] == 'granted'
+        assert updated_request['Item']['sessionStatus'] == 'in-progress'
         
         # Step 4: Grant access
         event_dict = api_gateway_event(
@@ -153,3 +161,4 @@ class TestHappyPath:
         # Verify request status was updated to granted
         final_request = dynamodb_tables['requests'].get_item(Key={'id': request_id})
         assert final_request['Item']['status'] == 'granted'
+        assert final_request['Item']['sessionStatus'] == 'in-progress'
