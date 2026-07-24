@@ -8,7 +8,6 @@
     "@cloudscape-design/components": "^3.0.1148",
     "@cloudscape-design/global-styles": "^1.0.49",
     "@tanstack/react-query": "^5.0.0",
-    "antd": "^4.24.0",
     "aws-amplify": "^6.15.8",
     "dayjs": "^1.11.0",
     "moment": "^2.29.1",
@@ -29,8 +28,6 @@
     "generate:api": "npx openapi-typescript ./openapi.json -o ./src/api/schema.d.ts",
     "cdk:synth": "cd cdk && npm run build && cdk synth",
     "cdk:deploy": "cd cdk && npm run build && cdk deploy --all",
-    "cdk:deploy:backend": "cd cdk && npm run build && cdk deploy TeamBackendStack-test",
-    "cdk:deploy:frontend": "cd cdk && npm run build && cdk deploy TeamFrontendStack-test",
     "cdk:destroy": "cd cdk && cdk destroy --all",
     "cdk:diff": "cd cdk && npm run build && cdk diff",
     "deploy": "npm run build && cd cdk && npm run build && cdk deploy --all"
@@ -38,13 +35,13 @@
   "optionalDependencies": {
     "fsevents": "~2.3.2"
   },
-  "description": "Temporary Elevated Access Management is an automated, time-based approval workflow for granting and revoking elevated user permissions on AWS",
+  "description": "Elevator — an automated, time-bound approval workflow for granting and revoking elevated access to AWS accounts via IAM Identity Center.",
   "repository": {
     "type": "git",
-    "url": "codecommit::us-east-1://pim@sso-pim"
+    "url": "git+https://github.com/asyschikov/elevator-for-aws.git"
   },
-  "author": "taiwo awoyinfa",
-  "license": "ISC",
+  "author": "Andrey Syschikov",
+  "license": "MIT",
   "devDependencies": {
     "@types/react": "^19.2.7",
     "@types/react-csv": "^1.1.10",

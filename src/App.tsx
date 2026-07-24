@@ -1,8 +1,8 @@
-// © 2023 Amazon Web Services, Inc. or its affiliates. All Rights Reserved.
-// This AWS Content is provided subject to the terms of the AWS Customer Agreement available at
-// http://aws.amazon.com/agreement or other written agreement between Customer and either
-// Amazon Web Services, Inc. or Amazon Web Services EMEA SARL or both.
-import React, { useEffect, useState } from "react";
+// Copyright (c) 2026 Andrey Syschikov
+// SPDX-License-Identifier: MIT
+// Portions derived from the AWS TEAM sample (MIT-0):
+// https://github.com/aws-samples/iam-identity-center-team
+import { useEffect, useState } from "react";
 import { signInWithRedirect, getCurrentUser, fetchAuthSession } from "aws-amplify/auth";
 import { Hub } from "aws-amplify/utils";
 import Spinner from "@cloudscape-design/components/spinner";
@@ -69,7 +69,6 @@ function Home({ loading }: { loading: boolean }) {
 }
 
 interface AuthData {
-  user: unknown;
   email: string | null;
   groups: string[] | null;
   cognitoGroups: string[];
@@ -78,7 +77,6 @@ interface AuthData {
 }
 
 const initialAuthData: AuthData = {
-  user: null,
   email: null,
   groups: null,
   cognitoGroups: [],
@@ -92,14 +90,13 @@ function App() {
 
   const checkUser = async () => {
     try {
-      const user = await getCurrentUser();
+      await getCurrentUser();
       const session = await fetchAuthSession();
       const idToken = session.tokens?.idToken;
 
       if (idToken) {
         const payload = idToken.payload;
         setAuthData({
-          user,
           email: (payload.email as string) || null,
           cognitoGroups: (payload["cognito:groups"] as string[]) || [],
           userId: (payload.userId as string) || null,
@@ -154,7 +151,6 @@ function App() {
     <div>
       {authData.groups ? (
         <Nav
-          user={authData.user}
           email={authData.email}
           groupIds={authData.groupIds}
           userId={authData.userId}

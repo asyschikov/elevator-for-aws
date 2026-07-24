@@ -1,0 +1,9 @@
+{
+  "awsRegion": "us-east-1",
+  "userPoolId": "us-east-1_xxxxxxxxx",
+  "userPoolClientId": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "oauthDomain": "elevator-<env>-<account-id>.auth.us-east-1.amazoncognito.com",
+  "appDomain": "elevator.example.com",
+  "apiEndpoint": "https://xxxxxxxxxx.execute-api.us-east-1.amazonaws.com",
+  "elevatorLoginUrl": "https://elevator.example.com/"
+}

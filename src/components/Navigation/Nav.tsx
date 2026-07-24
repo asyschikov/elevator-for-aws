@@ -1,8 +1,8 @@
-// © 2023 Amazon Web Services, Inc. or its affiliates. All Rights Reserved.
-// This AWS Content is provided subject to the terms of the AWS Customer Agreement available at
-// http://aws.amazon.com/agreement or other written agreement between Customer and either
-// Amazon Web Services, Inc. or Amazon Web Services EMEA SARL or both.
-import React, { useEffect, useState } from "react";
+// Copyright (c) 2026 Andrey Syschikov
+// SPDX-License-Identifier: MIT
+// Portions derived from the AWS TEAM sample (MIT-0):
+// https://github.com/aws-samples/iam-identity-center-team
+import { useEffect, useState } from "react";
 import AppLayout from "@cloudscape-design/components/app-layout";
 import Navigation from "./Navigation";
 import ToolsDrawer from "./ToolsDrawer";
@@ -27,7 +27,13 @@ import RequestDetail from "../Requests/RequestDetail";
 import ApprovalDetail from "../Approvals/ApprovalDetail";
 // Amplify is configured in index.tsx
 
-function Nav(props) {
+function Nav(props: {
+  email: string | null;
+  groups: string[] | null;
+  cognitoGroups: string[];
+  userId: string | null;
+  groupIds: string[] | null;
+}) {
   const [notifications, setNotifications] = useState([]);
   const [activeHref, setActiveHref] = useState("/");
   const [cognitoGroups,setCognitoGroups] = useState<string[]>([])
@@ -55,11 +61,7 @@ function Nav(props) {
       {User ? (
         <>
           <div id="h" style={{ position: 'sticky', top: 0, zIndex: 1002 }}>
-            <Header
-              user={User}
-              setActiveHref={setActiveHref}
-              addNotification={setNotifications}
-            />
+            <Header user={User} />
           </div>
           <AppLayout
             headerSelector="#h"

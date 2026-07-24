@@ -1,7 +1,7 @@
-// © 2023 Amazon Web Services, Inc. or its affiliates. All Rights Reserved.
-// This AWS Content is provided subject to the terms of the AWS Customer Agreement available at
-// http://aws.amazon.com/agreement or other written agreement between Customer and either
-// Amazon Web Services, Inc. or Amazon Web Services EMEA SARL or both.
+// Copyright (c) 2026 Andrey Syschikov
+// SPDX-License-Identifier: MIT
+// Portions derived from the AWS TEAM sample (MIT-0):
+// https://github.com/aws-samples/iam-identity-center-team
 import * as React from "react";
 import SideNavigation, { SideNavigationProps } from "@cloudscape-design/components/side-navigation";
 import Icon from "@cloudscape-design/components/icon";

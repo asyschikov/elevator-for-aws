@@ -1,4 +1,7 @@
-// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. // SPDX-License-Identifier: MIT-0
+// Copyright (c) 2026 Andrey Syschikov
+// SPDX-License-Identifier: MIT
+// Portions derived from the AWS TEAM sample (MIT-0):
+// https://github.com/aws-samples/iam-identity-center-team
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
