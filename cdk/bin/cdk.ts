@@ -19,6 +19,7 @@ const allowLocalhost = process.env.ELEVATOR_ALLOW_LOCALHOST === 'true';
 const repoOwner = process.env.ELEVATOR_REPO_OWNER;
 const repoName = process.env.ELEVATOR_REPO_NAME;
 const branch = process.env.ELEVATOR_BRANCH || 'main';
+const nonProdEnv = process.env.ELEVATOR_NONPROD_ENV;
 
 if (!envName) {
   throw new Error('Missing required env var: ELEVATOR_ENV');
@@ -73,24 +74,25 @@ if (elevatorMissing.length === 0) {
   });
 }
 
-// Pipeline Stack - created when repo settings are provided
-if (repoOwner && repoName && elevatorMissing.length === 0) {
+// Pipeline Stack - created when repo settings are provided.
+// The pipeline reads application config from SSM at run time, so it does NOT
+// depend on the ELEVATOR_ADMIN_GROUP / etc. env vars (this is what lets the
+// self-mutation build synthesize the pipeline without app config present).
+if (repoOwner && repoName) {
+  if (!process.env.CDK_DEFAULT_REGION) {
+    throw new Error('Missing CDK_DEFAULT_REGION (required to synthesize the pipeline)');
+  }
   new PipelineStack(app, `ElevatorPipeline-${envName}`, {
     stackName: `ElevatorPipeline-${envName}`,
     env: {
       account: process.env.CDK_DEFAULT_ACCOUNT,
-      region: process.env.CDK_DEFAULT_REGION!,
+      region: process.env.CDK_DEFAULT_REGION,
     },
     envName,
+    nonProdEnv,
     repoOwner,
     repoName,
     branch,
-    elevatorAdminGroup: elevatorAdminGroup!,
-    elevatorAuditorGroup: elevatorAuditorGroup!,
-    idcAccessGroup: idcAccessGroup!,
-    idcRegion,
-    customDomain,
-    allowLocalhost,
     tags: commonTags,
   });
 }

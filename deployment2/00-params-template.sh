@@ -28,8 +28,11 @@ export ELEVATOR_CUSTOM_DOMAIN=
 export ELEVATOR_ALLOW_LOCALHOST=false
 
 # =============================================================================
-# Pipeline Settings (optional - only needed for ./create-pipeline.sh)
+# Pipeline Settings (optional - only needed for ./bootstrap.sh)
 # =============================================================================
+# ELEVATOR_ENV above is the PROD environment the pipeline deploys to (after a
+# manual approval). Bootstrap stores config in SSM; the pipeline reads it at run
+# time, so you can change values later with ./config-put.sh without redeploying.
 
 # GitHub repository owner (auto-detected from git remote if not set)
 # export ELEVATOR_REPO_OWNER=
@@ -39,6 +42,12 @@ export ELEVATOR_ALLOW_LOCALHOST=false
 
 # Branch to deploy from (defaults to current branch or 'main')
 # export ELEVATOR_BRANCH=main
+
+# Optional non-prod environment. When set, the pipeline gains a non-prod deploy
+# stage that runs BEFORE the prod approval. Leave unset to disable it entirely
+# (the stage is not added to the pipeline at all). Populate its config with:
+#   ./config-put.sh <name>
+# export ELEVATOR_NONPROD_ENV=staging
 
 # =============================================================================
 # Derived values (do not modify)

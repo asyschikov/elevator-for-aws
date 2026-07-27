@@ -104,52 +104,70 @@ If you already deployed without a custom domain:
 
 ## Deployments with CodePipeline (Optional)
 
-Instead of running `./03-deploy.sh` locally, you can set up a CodePipeline to deploy from AWS.
+Instead of running `./03-deploy.sh` from your laptop for every change, you can run a
+**one-time bootstrap** that provisions a self-updating CodePipeline. After that, the
+pipeline deploys Elevator from GitHub. See `CICD_PROPOSAL.md` for the full design.
 
-### Create the Pipeline
+Pipeline shape:
 
-After your initial deployment with `./03-deploy.sh`, run:
-
-```bash
-./create-pipeline.sh
+```
+Source (GitHub) → UpdatePipeline (self-mutate) → [Deploy-NonProd?] → Approve-Prod → Deploy-Prod
 ```
 
-This creates a CodePipeline that:
-- Pulls from your branch (auto-detected from git, or set `ELEVATOR_BRANCH`)
-- Deploys infrastructure changes via CDK
-- Builds and deploys the frontend
+### One-time bootstrap
 
-### Approve GitHub Connection
+```bash
+./bootstrap.sh
+```
 
-After creating the pipeline, you must approve the GitHub connection in the AWS Console:
+This is safe to re-run and it:
 
-1. Go to **Developer Tools > Settings > Connections**
-2. Find the `elevator-github-*` connection (status: Pending)
-3. Click **Update pending connection** and authorize GitHub access
+1. Writes your application config to **SSM Parameter Store** (`/elevator/<env>/config/*`).
+   The pipeline reads these at run time, so later changes don't require a pipeline redeploy.
+2. `cdk bootstrap`s the account/region if needed.
+3. Creates a **GitHub CodeConnections** connection and stores its ARN in SSM.
+4. Deploys the pipeline stack (`ElevatorPipeline-<env>`).
+5. Prints the console URL to **approve the GitHub connection** — the one manual,
+   one-time step (no long-lived credentials are stored).
 
-### Run the Pipeline
+### Approve the GitHub connection
 
-The pipeline does not trigger automatically. To deploy, manually start the pipeline:
-- In AWS Console: **CodePipeline > elevator-{env} > Release change**
-- Or via CLI: `aws codepipeline start-pipeline-execution --name elevator-$ELEVATOR_ENV`
+Bootstrap pauses until the connection is approved (`Ctrl-C` to skip; re-running is safe):
 
-### Custom Domain with Pipeline
+1. Open **Developer Tools → Settings → Connections**
+2. Select `elevator-github-<env>` (status: *Pending*)
+3. Click **Update pending connection** and authorize access to your repo
 
-Custom domain setup is interactive and must be done manually (not via pipeline).
+### How it runs
 
-**Recommended: Set up custom domain before creating pipeline**
+- **Trigger:** pushing to the configured branch starts the pipeline automatically.
+- **Self-mutation:** if `cdk/lib/pipeline-stack.ts` changes, the `UpdatePipeline`
+  stage applies it to the pipeline before deploying the app.
+- **Prod is always gated:** the `Approve-Prod` manual-approval action must be approved
+  (console: **CodePipeline → elevator-<env>**) before prod is deployed.
 
-1. Set `ELEVATOR_CUSTOM_DOMAIN` in `00-params.sh`
-2. Run `./02-create-domain-and-cert.sh` and configure NS records
-3. Run `./03-deploy.sh` for initial deployment
-4. Run `./create-pipeline.sh` to create the pipeline
+### Changing configuration later
 
-**Adding custom domain to existing pipeline**
+Edit the value in `00-params.sh` (or directly in SSM) and run:
 
-1. Set `ELEVATOR_CUSTOM_DOMAIN` in `00-params.sh`
-2. Run `./02-create-domain-and-cert.sh` and configure NS records
-3. Run `./create-pipeline.sh` again to update the pipeline
-4. Trigger the pipeline to deploy with the custom domain
+```bash
+./config-put.sh <env>
+```
+
+The next pipeline run picks it up — no pipeline redeploy.
+
+### Optional non-prod stage
+
+Set `ELEVATOR_NONPROD_ENV=<name>` in `00-params.sh` and re-run `./bootstrap.sh`. This
+adds a non-prod deploy stage **before** the prod approval. Populate its config with
+`./config-put.sh <name>`. Leave `ELEVATOR_NONPROD_ENV` unset (default) and the stage is
+not part of the pipeline at all.
+
+### Custom domain with the pipeline
+
+Custom-domain certificate setup is interactive (DNS validation) and remains a one-time
+prerequisite — run `./02-create-domain-and-cert.sh` **before** `./bootstrap.sh`. The
+pipeline's deploy stage does not create the domain/certificate.
 
 ### Pipeline Variables
 
@@ -158,6 +176,7 @@ Custom domain setup is interactive and must be done manually (not via pipeline).
 | `ELEVATOR_REPO_OWNER` | GitHub owner/org (auto-detected from git remote) |
 | `ELEVATOR_REPO_NAME` | Repository name (auto-detected from git remote) |
 | `ELEVATOR_BRANCH` | Branch to deploy (defaults to current branch) |
+| `ELEVATOR_NONPROD_ENV` | Optional non-prod env; enables the non-prod stage when set |
 
 ## Local Development
 
@@ -183,8 +202,10 @@ The frontend runs at http://localhost:5173 and connects to your deployed API.
 | `00-params.sh` | Your deployment parameters (not in git) |
 | `01-delegate.sh` | Set up delegated admin (run from management account) |
 | `02-create-domain-and-cert.sh` | Set up custom domain and certificate (optional) |
-| `03-deploy.sh` | Deploy the Elevator stack |
-| `create-pipeline.sh` | Create CodePipeline for deployments |
+| `03-deploy.sh` | Deploy the Elevator stack locally |
+| `bootstrap.sh` | One-time setup of the CI/CD pipeline (SSM config + GitHub connection + pipeline) |
+| `config-put.sh` | Write/update an environment's config in SSM (read by the pipeline at run time) |
+| `create-pipeline.sh` | Deprecated alias for `bootstrap.sh` |
 | `deploy-frontend.sh` | Redeploy frontend only |
 | `generate-local-config.sh` | Generate config for local development |
 | `generate-config.py` | Generate frontend config from stack outputs |
@@ -199,6 +220,9 @@ The frontend runs at http://localhost:5173 and connects to your deployed API.
 ```
 
 ### With pipeline
+
+Push to the configured branch — the pipeline triggers automatically. Approve the
+`Approve-Prod` step in the console to deploy prod. To force a run without a push:
 
 ```bash
 aws codepipeline start-pipeline-execution --name elevator-$ELEVATOR_ENV
