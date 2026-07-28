@@ -43,3 +43,14 @@ src/config.json
 
 # Deployment params (contains environment-specific values)
 deployment2/00-params.sh
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+terraform/terraform.tfvars
+terraform/backend.hcl
+terraform/build/
+terraform/**/.terraform.lock.hcl
