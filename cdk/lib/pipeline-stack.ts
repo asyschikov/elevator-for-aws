@@ -24,7 +24,12 @@ export interface PipelineStackProps extends cdk.StackProps {
 /**
  * Multi-stage delivery pipeline for Elevator.
  *
- *   Source -> UpdatePipeline (self-mutate) -> [Deploy-NonProd?] -> Approve-Prod -> Deploy-Prod
+ *   Source -> [Deploy-NonProd?] -> Approve-Prod -> Deploy-Prod
+ *
+ * The pipeline does NOT manage itself — there is no self-mutation. Changes to the
+ * pipeline are released explicitly by an admin via the CLI
+ * (`cdk deploy ElevatorPipeline-<env>` / `deployment2/bootstrap.sh`). The pipeline's
+ * sole job is to deploy the application.
  *
  * Application configuration is NOT baked into this stack. Each deploy stage reads
  * its environment's config from SSM (`/elevator/<env>/config/*`) at run time, so
@@ -136,44 +141,6 @@ export class PipelineStack extends cdk.Stack {
       return project;
     };
 
-    // ---- Self-mutation: redeploy the pipeline stack from the checked-out source ----
-    const updateProject = new codebuild.PipelineProject(this, 'UpdatePipeline', {
-      projectName: `elevator-update-pipeline-${envName}`,
-      environment: {
-        buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
-        computeType: codebuild.ComputeType.SMALL,
-      },
-      // Pipeline shape lives in env vars (not app config) so `cdk deploy` of the
-      // pipeline synthesizes an identical pipeline.
-      environmentVariables: {
-        ELEVATOR_ENV: { value: envName },
-        ELEVATOR_REPO_OWNER: { value: repoOwner },
-        ELEVATOR_REPO_NAME: { value: repoName },
-        ELEVATOR_BRANCH: { value: branch },
-        ...(nonProdEnv ? { ELEVATOR_NONPROD_ENV: { value: nonProdEnv } } : {}),
-      },
-      buildSpec: codebuild.BuildSpec.fromObject({
-        version: '0.2',
-        phases: {
-          install: {
-            'runtime-versions': { nodejs: '20' },
-            commands: ['cd cdk && npm ci && cd ..'],
-          },
-          build: {
-            commands: [
-              [
-                'set -eu',
-                'export CDK_DEFAULT_ACCOUNT=$(aws sts get-caller-identity --query Account --output text)',
-                'export CDK_DEFAULT_REGION=$AWS_REGION',
-                `cd cdk && npx cdk deploy ElevatorPipeline-${envName} --require-approval never`,
-              ].join('\n'),
-            ],
-          },
-        },
-      }),
-    });
-    deployPolicy().forEach((s) => updateProject.addToRolePolicy(s));
-
     // ---- Pipeline ----
     const sourceOutput = new codepipeline.Artifact('SourceOutput');
 
@@ -195,18 +162,6 @@ export class PipelineStack extends cdk.Stack {
           connectionArn,
           output: sourceOutput,
           triggerOnPush: true,
-        }),
-      ],
-    });
-
-    // Self-mutation — applies pipeline changes before anything is deployed.
-    pipeline.addStage({
-      stageName: 'UpdatePipeline',
-      actions: [
-        new cpactions.CodeBuildAction({
-          actionName: 'SelfMutate',
-          project: updateProject,
-          input: sourceOutput,
         }),
       ],
     });

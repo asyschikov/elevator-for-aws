@@ -111,7 +111,7 @@ pipeline deploys Elevator from GitHub. See `CICD_PROPOSAL.md` for the full desig
 Pipeline shape:
 
 ```
-Source (GitHub) → UpdatePipeline (self-mutate) → [Deploy-NonProd?] → Approve-Prod → Deploy-Prod
+Source (GitHub) → [Deploy-NonProd?] → Approve-Prod → Deploy-Prod
 ```
 
 ### One-time bootstrap
@@ -141,8 +141,11 @@ Bootstrap pauses until the connection is approved (`Ctrl-C` to skip; re-running 
 ### How it runs
 
 - **Trigger:** pushing to the configured branch starts the pipeline automatically.
-- **Self-mutation:** if `cdk/lib/pipeline-stack.ts` changes, the `UpdatePipeline`
-  stage applies it to the pipeline before deploying the app.
+- **The pipeline does not manage itself.** There is no self-mutation — the pipeline
+  only deploys the application. Changes to the pipeline itself are released explicitly
+  by an admin from the CLI (`./bootstrap.sh`, or
+  `cdk deploy ElevatorPipeline-<env>`), so pushing app code can never alter the
+  pipeline or its permissions.
 - **Prod is always gated:** the `Approve-Prod` manual-approval action must be approved
   (console: **CodePipeline → elevator-<env>**) before prod is deployed.
 

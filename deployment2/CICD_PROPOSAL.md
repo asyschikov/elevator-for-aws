@@ -6,9 +6,16 @@
 which builds and deploys Elevator from GitHub, reading its configuration from AWS
 instead of from a local file.
 
+> **Update (post-review):** self-mutation was **removed**. The pipeline no longer
+> manages itself — it only deploys the app (`Source → [Deploy-NonProd?] → Approve-Prod
+> → Deploy-Prod`). Pipeline changes are released explicitly by an admin from the CLI
+> (`cdk deploy ElevatorPipeline-<env>` / `bootstrap.sh`), keeping the pipeline out of
+> its own blast radius. §3.2 below describes the original self-mutating design for
+> reference only.
+
 **Where it landed:**
-- `cdk/lib/pipeline-stack.ts` — multi-stage, self-mutating pipeline; config read from
-  SSM at run time; prod manual-approval gate; optional non-prod stage (synth toggle).
+- `cdk/lib/pipeline-stack.ts` — multi-stage pipeline (no self-mutation); config read
+  from SSM at run time; prod manual-approval gate; optional non-prod stage (synth toggle).
 - `cdk/bin/cdk.ts` — pipeline decoupled from app-config env vars.
 - `deployment2/bootstrap.sh` — the one-time command.
 - `deployment2/config-put.sh` — write/update an env's SSM config.
