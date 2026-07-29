@@ -1,0 +1,9 @@
+# S3 backend for the PIPELINE state. Copy to backend.hcl and edit, then:
+#   terraform init -backend-config=backend.hcl
+# Uses the same bucket as the app state (from terraform/bootstrap), different key.
+
+bucket       = "elevator-tfstate-<account-id>"
+key          = "elevator/prod/pipeline.tfstate"
+region       = "us-east-1"
+encrypt      = true
+use_lockfile = true

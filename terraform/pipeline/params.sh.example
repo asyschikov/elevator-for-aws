@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Elevator Terraform pipeline parameters. Copy to params.sh and set your values.
+# (params.sh is git-ignored.) AWS credentials are configured separately.
+
+# Prod environment name (the pipeline deploys here after a manual approval).
+export ELEVATOR_ENV=prod
+
+# Deployment region.
+export AWS_REGION=us-east-1
+
+# IAM Identity Center home region (if different from AWS_REGION).
+export IDC_REGION=eu-west-1
+
+# IAM Identity Center groups.
+export ELEVATOR_ADMIN_GROUP=Elevator-Admins
+export ELEVATOR_AUDITOR_GROUP=Elevator-Auditors
+export ELEVATOR_IDC_ACCESS_GROUP=Developers
+
+# Optional custom domain (requires an ISSUED us-east-1 ACM cert + Route53 zone).
+export ELEVATOR_CUSTOM_DOMAIN=
+
+# Allow localhost callback URLs (dev only).
+export ELEVATOR_ALLOW_LOCALHOST=false
+
+# Terraform state bucket (created by terraform/bootstrap).
+export ELEVATOR_STATE_BUCKET=elevator-tfstate-<account-id>
+
+# GitHub repo (auto-detected from the git remote if unset).
+# export ELEVATOR_REPO_OWNER=
+# export ELEVATOR_REPO_NAME=
+# export ELEVATOR_BRANCH=main
+
+# Optional non-prod environment. When set, the pipeline gains a non-prod deploy
+# stage before the prod approval. Populate its config with ./config-put.sh <name>.
+# export ELEVATOR_NONPROD_ENV=staging

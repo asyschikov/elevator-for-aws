@@ -53,4 +53,6 @@ crash.*.log
 terraform/terraform.tfvars
 terraform/backend.hcl
 terraform/build/
+terraform/pipeline/backend.hcl
+terraform/pipeline/params.sh
 terraform/**/.terraform.lock.hcl
