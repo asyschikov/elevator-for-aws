@@ -47,7 +47,17 @@ Elevator deploys as a single AWS CDK stack and a static frontend:
 
 ## Getting Started
 
-The full deployment guide lives in **[`deployment2/README.md`](deployment2/README.md)**.
+Elevator can be deployed with **either** infrastructure-as-code tool — pick one per
+environment:
+
+| Tool | Deploy the app | CI/CD pipeline |
+|------|----------------|----------------|
+| **AWS CDK** | [`deployment2/`](deployment2/README.md) | [`deployment2/bootstrap.sh`](deployment2/README.md#deployments-with-codepipeline-optional) |
+| **Terraform** (S3 state) | [`terraform/`](terraform/README.md) | [`terraform/pipeline/`](terraform/pipeline/README.md) |
+
+The CDK quick start is below; for Terraform see [`terraform/README.md`](terraform/README.md).
+
+The full CDK deployment guide lives in **[`deployment2/README.md`](deployment2/README.md)**.
 In short:
 
 ```bash
