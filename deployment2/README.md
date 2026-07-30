@@ -142,9 +142,40 @@ Bootstrap pauses until the connection is approved (`Ctrl-C` to skip; re-running 
 
 - **Trigger:** pushing to the configured branch starts the pipeline automatically.
 - **Self-mutation:** if `cdk/lib/pipeline-stack.ts` changes, the `UpdatePipeline`
-  stage applies it to the pipeline before deploying the app.
+  stage applies it to the pipeline before deploying the app. (A push to app code can
+  therefore also change the pipeline — the `Approve-Prod` gate still protects prod.)
 - **Prod is always gated:** the `Approve-Prod` manual-approval action must be approved
   (console: **CodePipeline → elevator-<env>**) before prod is deployed.
+
+### Adopting an existing (already-deployed) stack
+
+If you first deployed Elevator locally with `./03-deploy.sh` and want to hand that
+environment over to the pipeline, **no `cdk import` is needed**. The deploy stage runs
+`cdk deploy ElevatorStack-<env>` against the **same CloudFormation stack name**, so it
+becomes an in-place update of your existing stack.
+
+1. **Put your live code on the pipeline's branch.** The pipeline deploys the branch
+   (e.g. `main`), not your laptop — commit and push so the branch reflects what's live.
+2. **(Optional) Preview the reconciliation** from that commit:
+   ```bash
+   cd cdk && source ../deployment2/00-params.sh && npx cdk diff ElevatorStack-$ELEVATOR_ENV
+   ```
+   Expect "no changes" or only benign Lambda code updates; confirm nothing stateful is
+   marked `(replace)` (DynamoDB / the Cognito user pool / buckets are `RETAIN` anyway).
+3. **`./bootstrap.sh`** — writes SSM config from `00-params.sh` and deploys the
+   pipeline. This does **not** touch your live stack.
+4. **Approve the GitHub connection** (once).
+5. **Run the pipeline** (push, or start it in the console) and approve `Approve-Prod`.
+   The deploy stage updates your existing stack in place.
+
+Notes:
+- The repo must be reachable by the CodeConnections app — either **public**, or the
+  **AWS Connector for GitHub** app granted access to it. A private repo the app can't
+  see fails Source with `No Branch <branch> found`.
+- CodeBuild recomputes asset hashes, so the first run **republishes the Lambda code**
+  (a code update, not a resource replacement).
+- **After adoption, deploy that environment only through the pipeline** — don't run
+  `./03-deploy.sh` for it, or the two deployers will fight over the stack.
 
 ### Changing configuration later
 
