@@ -1,7 +1,7 @@
 # Elevator — Terraform deployment
 
 This is an **alternative** to the CDK deployment under [`../cdk`](../cdk) /
-[`../deployment2`](../deployment2). It provisions the same Elevator application —
+[`../deployment`](../deployment). It provisions the same Elevator application —
 Cognito + SAML federation to IAM Identity Center, an API Gateway HTTP API backed by
 Python Lambdas, DynamoDB, CloudFront, and a CloudTrail Lake event data store — using
 Terraform with an **S3 state backend**.

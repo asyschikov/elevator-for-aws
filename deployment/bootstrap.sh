@@ -11,7 +11,7 @@
 # pipeline stack is updated in place.
 #
 # Prerequisites:
-#   - deployment2/00-params.sh filled in (copy from 00-params-template.sh)
+#   - deployment/00-params.sh filled in (copy from 00-params-template.sh)
 #   - AWS credentials configured (AWS_PROFILE / env vars) for the target account
 #   - For a custom domain: run ./02-create-domain-and-cert.sh once beforehand
 

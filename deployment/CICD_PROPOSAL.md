@@ -10,10 +10,10 @@ instead of from a local file.
 - `cdk/lib/pipeline-stack.ts` — multi-stage, self-mutating pipeline; config read from
   SSM at run time; prod manual-approval gate; optional non-prod stage (synth toggle).
 - `cdk/bin/cdk.ts` — pipeline decoupled from app-config env vars.
-- `deployment2/bootstrap.sh` — the one-time command.
-- `deployment2/config-put.sh` — write/update an env's SSM config.
-- `deployment2/create-pipeline.sh` — now a thin alias to `bootstrap.sh`.
-- `deployment2/00-params-template.sh`, `deployment2/README.md` — docs + `ELEVATOR_NONPROD_ENV`.
+- `deployment/bootstrap.sh` — the one-time command.
+- `deployment/config-put.sh` — write/update an env's SSM config.
+- `deployment/create-pipeline.sh` — now a thin alias to `bootstrap.sh`.
+- `deployment/00-params-template.sh`, `deployment/README.md` — docs + `ELEVATOR_NONPROD_ENV`.
 
 ---
 
@@ -40,10 +40,10 @@ Elevator already has most of the pieces, wired for a **manual** flow:
 
 | Piece | File | What it does |
 |-------|------|--------------|
-| Params | `deployment2/00-params.sh` (git-ignored) | Local shell file with all config as `export`s |
-| App deploy | `deployment2/03-deploy.sh` | `cdk deploy ElevatorStack-$ENV` (creates the IdC SAML app via a custom resource), then frontend |
-| Frontend deploy | `deployment2/deploy-frontend.sh` + `generate-config.py` | Reads stack outputs → `src/config.json` → `npm run build` → `s3 sync` → CloudFront invalidation |
-| Pipeline (scaffold) | `cdk/lib/pipeline-stack.ts` + `deployment2/create-pipeline.sh` | CodeConnections GitHub source + one CodeBuild "Deploy" stage |
+| Params | `deployment/00-params.sh` (git-ignored) | Local shell file with all config as `export`s |
+| App deploy | `deployment/03-deploy.sh` | `cdk deploy ElevatorStack-$ENV` (creates the IdC SAML app via a custom resource), then frontend |
+| Frontend deploy | `deployment/deploy-frontend.sh` + `generate-config.py` | Reads stack outputs → `src/config.json` → `npm run build` → `s3 sync` → CloudFront invalidation |
+| Pipeline (scaffold) | `cdk/lib/pipeline-stack.ts` + `deployment/create-pipeline.sh` | CodeConnections GitHub source + one CodeBuild "Deploy" stage |
 
 **The existing pipeline scaffold's limitations** (what this proposal changes):
 
@@ -63,7 +63,7 @@ always gated by a **manual approval**.
 
 ```
    ┌──────────────────────────── one time, from a laptop ────────────────────────────┐
-   │  ./deployment2/bootstrap.sh                                                      │
+   │  ./deployment/bootstrap.sh                                                      │
    │   1. collect/confirm config (envs, IdC groups, region, domain, repo, branch)     │
    │   2. cdk bootstrap  (if the account isn't CDK-bootstrapped yet)                   │
    │   3. put config  → SSM Parameter Store   /elevator/<env>/config/*                 │
@@ -151,8 +151,8 @@ new stage.
 
 Two equally viable forms — see decision **D1**:
 
-- **(A) Shell entry point** `deployment2/bootstrap.sh` (fits the existing
-  `deployment2/*.sh` style, minimal new tooling), or
+- **(A) Shell entry point** `deployment/bootstrap.sh` (fits the existing
+  `deployment/*.sh` style, minimal new tooling), or
 - **(B) A thin `elevator` CLI** (`npx elevator bootstrap`) wrapping the same steps
   for a nicer UX.
 
@@ -160,7 +160,7 @@ Either way the flow is:
 
 ```bash
 # First run on a fresh account
-./deployment2/bootstrap.sh
+./deployment/bootstrap.sh
 #   → prompts for (or reads from flags/env) the config
 #   → cdk bootstrap                              (skipped if already bootstrapped)
 #   → writes /elevator/prod/config/* to SSM
@@ -170,7 +170,7 @@ Either way the flow is:
 # One manual click: approve the GitHub connection in the console (§5)
 #
 # Re-run any time to change pipeline shape or push new config — it's idempotent:
-./deployment2/bootstrap.sh --set ELEVATOR_ALLOW_LOCALHOST=false
+./deployment/bootstrap.sh --set ELEVATOR_ALLOW_LOCALHOST=false
 ```
 
 Idempotency: SSM `put-parameter --overwrite` is an upsert; an existing approved
@@ -244,14 +244,14 @@ we add multiple environments or cross-account deploys. (Decision **D4**.)
     approval.
   - Set the source action to `triggerOnPush: true`.
   - Tighten the IAM policy statements (§6).
-- `deployment2/bootstrap.sh` (new) — the one-time shell command (§4). Decided (**D1**):
-  a **shell script**, consistent with the existing `deployment2/*.sh` flow.
-- `deployment2/00-params-template.sh` — keep as the *input* to bootstrap; add the
+- `deployment/bootstrap.sh` (new) — the one-time shell command (§4). Decided (**D1**):
+  a **shell script**, consistent with the existing `deployment/*.sh` flow.
+- `deployment/00-params-template.sh` — keep as the *input* to bootstrap; add the
   optional `ELEVATOR_NONPROD_ENV`; document that after bootstrap, AWS (SSM) is the
   source of truth, not this file.
-- `deployment2/create-pipeline.sh` — fold into `bootstrap.sh` or keep as a thin alias.
-- `deployment2/README.md` — add a "CI/CD via pipeline" section.
-- (Optional) `deployment2/config-set.sh` — helper to change a single SSM config value.
+- `deployment/create-pipeline.sh` — fold into `bootstrap.sh` or keep as a thin alias.
+- `deployment/README.md` — add a "CI/CD via pipeline" section.
+- (Optional) `deployment/config-set.sh` — helper to change a single SSM config value.
 
 ## 9. Rollout plan
 
@@ -269,7 +269,7 @@ we add multiple environments or cross-account deploys. (Decision **D4**.)
 
 ## 10. Decisions
 
-- **D1 — DECIDED: shell script.** The one-time command is `deployment2/bootstrap.sh`,
+- **D1 — DECIDED: shell script.** The one-time command is `deployment/bootstrap.sh`,
   consistent with the existing scripts. No new CLI tooling.
 - **D2 — DECIDED: manual, no long-lived creds.** Keep the one-click CodeConnections
   approval; reject the GitHub App/PAT alternative.

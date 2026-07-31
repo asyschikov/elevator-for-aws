@@ -52,17 +52,17 @@ environment:
 
 | Tool | Deploy the app | CI/CD pipeline |
 |------|----------------|----------------|
-| **AWS CDK** | [`deployment2/`](deployment2/README.md) | [`deployment2/bootstrap.sh`](deployment2/README.md#deployments-with-codepipeline-optional) |
+| **AWS CDK** | [`deployment/`](deployment/README.md) | [`deployment/bootstrap.sh`](deployment/README.md#deployments-with-codepipeline-optional) |
 | **Terraform** (S3 state) | [`terraform/`](terraform/README.md) | [`terraform/pipeline/`](terraform/pipeline/README.md) |
 
 The CDK quick start is below; for Terraform see [`terraform/README.md`](terraform/README.md).
 
-The full CDK deployment guide lives in **[`deployment2/README.md`](deployment2/README.md)**.
+The full CDK deployment guide lives in **[`deployment/README.md`](deployment/README.md)**.
 In short:
 
 ```bash
 # 1. Configure your environment
-cd deployment2
+cd deployment
 cp 00-params-template.sh 00-params.sh
 # edit 00-params.sh with your account, region, and IAM Identity Center groups
 
@@ -76,7 +76,7 @@ cp 00-params-template.sh 00-params.sh
 **Prerequisites:** AWS CLI configured with appropriate credentials, Node.js +
 npm, Python 3.12+, the AWS CDK CLI (`npm install -g aws-cdk`), and IAM Identity
 Center enabled in your organization. See
-[`deployment2/README.md`](deployment2/README.md) for delegated-administrator
+[`deployment/README.md`](deployment/README.md) for delegated-administrator
 setup and custom-domain options.
 
 ## Development
@@ -95,7 +95,7 @@ npm run dev
 ```
 
 `src/config.json` is generated from your deployed stack outputs (see
-`deployment2/generate-config.py`) and is intentionally not committed. Use
+`deployment/generate-config.py`) and is intentionally not committed. Use
 [`src/config.example.json`](src/config.example.json) as a reference for the
 expected shape.
 

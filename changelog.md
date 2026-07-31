@@ -18,7 +18,7 @@ sample and has since been substantially rewritten. Highlights of the rebuild:
 ### Added
 
 - Single-stack AWS CDK deployment (`cdk/lib/elevator-stack.ts`) with a
-  one-step deploy flow under `deployment2/`.
+  one-step deploy flow under `deployment/`.
 - Python (Lambda) backend behind an API Gateway HTTP API, with typed
   request/response models generated into an OpenAPI 3.0 spec and TypeScript
   client types.

@@ -158,7 +158,7 @@ becomes an in-place update of your existing stack.
    (e.g. `main`), not your laptop — commit and push so the branch reflects what's live.
 2. **(Optional) Preview the reconciliation** from that commit:
    ```bash
-   cd cdk && source ../deployment2/00-params.sh && npx cdk diff ElevatorStack-$ELEVATOR_ENV
+   cd cdk && source ../deployment/00-params.sh && npx cdk diff ElevatorStack-$ELEVATOR_ENV
    ```
    Expect "no changes" or only benign Lambda code updates; confirm nothing stateful is
    marked `(replace)` (DynamoDB / the Cognito user pool / buckets are `RETAIN` anyway).

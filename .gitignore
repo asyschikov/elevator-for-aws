@@ -42,7 +42,7 @@ src/config.json
 .idea
 
 # Deployment params (contains environment-specific values)
-deployment2/00-params.sh
+deployment/00-params.sh
 
 # Terraform
 **/.terraform/*

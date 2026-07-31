@@ -1,6 +1,6 @@
 # Elevator — Terraform CI/CD pipeline
 
-The Terraform counterpart to the CDK pipeline ([`../../deployment2`](../../deployment2)).
+The Terraform counterpart to the CDK pipeline ([`../../deployment`](../../deployment)).
 A one-time bootstrap provisions a self-mutating, multi-stage **CodePipeline** that
 deploys Elevator (via the Terraform config in [`..`](..)) from GitHub.
 

@@ -1,6 +1,6 @@
 # Custom-domain support. Mirrors the CDK stack: an ISSUED ACM certificate (in
 # us-east-1, for CloudFront) and a Route53 hosted zone for the domain must already
-# exist. Create them once beforehand (e.g. via deployment2/02-create-domain-and-cert.sh
+# exist. Create them once beforehand (e.g. via deployment/02-create-domain-and-cert.sh
 # or your own process), then set var.custom_domain.
 
 data "aws_acm_certificate" "website" {

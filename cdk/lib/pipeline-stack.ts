@@ -108,7 +108,7 @@ export class PipelineStack extends cdk.Stack {
                 // Infrastructure (includes the IdC SAML app via custom resource).
                 `cd cdk && npx cdk deploy ElevatorStack-${targetEnv} --method=direct --require-approval never && cd ..`,
                 // Frontend: config from stack outputs, build, upload, invalidate.
-                'cd deployment2 && python3 generate-config.py && cd ..',
+                'cd deployment && python3 generate-config.py && cd ..',
                 'npm run build',
                 `WEBSITE_BUCKET=$(aws cloudformation describe-stacks --stack-name ElevatorStack-${targetEnv} ` +
                   `--query "Stacks[0].Outputs[?OutputKey=='WebsiteBucketName'].OutputValue" --output text)`,
