@@ -38,12 +38,23 @@ Elevator deploys as a single AWS CDK stack and a static frontend:
 - **Auth** — Amazon Cognito user pool with SAML federation to IAM Identity
   Center. The IAM Identity Center SAML application is created automatically
   during deployment.
-- **Data** — Amazon DynamoDB tables for requests, sessions, approvers,
-  eligibility, and settings.
+- **Data** — Amazon DynamoDB tables for requests, approvers, eligibility,
+  settings, and integrations.
 - **Access provisioning** — IAM Identity Center account assignments are created
   and removed to grant and revoke access.
 - **Audit** — AWS CloudTrail Lake event data store for durable, queryable audit
   logs.
+
+## Documentation
+
+- **[Architecture](docs/architecture.md)** — components, request/auth flow, the
+  grant/revoke lifecycle, and the data model.
+- **[Installation & Update Guide](docs/installation.md)** — prerequisites, first
+  deploy, first sign-in, updating, CI/CD, and uninstall.
+- **[Customization](docs/customization.md)** — runtime config vs. code changes, and a
+  worked example of **adding a new integration** and deploying it.
+- **[Deployment & CI/CD](deployment/README.md)** — the deploy scripts and the pipeline
+  (including adopting an already-deployed stack).
 
 ## Getting Started
 
